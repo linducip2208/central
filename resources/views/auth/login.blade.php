@@ -37,7 +37,7 @@
 </form>
 </div>
 </div>
-<p class="text-center text-secondary mt-3">Demo: admin@mbg.id / password123</p>
+<p class="text-center text-secondary mt-3">Demo: admin@mbg.id / password123 · <a href="{{ route('docs') }}">Panduan penggunaan</a></p>
 </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"></script>
