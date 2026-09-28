@@ -7,6 +7,7 @@ use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\CentralKitchen;
 use App\Models\Ingredient;
+use App\Models\KitchenBudget;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
@@ -124,8 +125,28 @@ class PurchaseOrderController extends Controller
         $po->update(['status' => 'APPROVED', 'approved_by' => request()->user()->id, 'approved_at' => now()]);
         app(ApprovalService::class)->decide($po, 'APPROVE');
         app(NotificationService::class)->sendPurchaseApproved($po->id);
+        $warning = $this->budgetWarning($po);
 
-        return back()->with('success', 'PO disetujui. Barang dapat diterima via Goods Receipt.');
+        return back()->with('success', 'PO disetujui. Barang dapat diterima via Goods Receipt.'.$warning);
+    }
+
+    /** Peringatan (non-blocking) bila belanja bulan berjalan melampaui budget dapur. */
+    protected function budgetWarning(PurchaseOrder $po): string
+    {
+        $period = now()->format('Y-m');
+        $budget = KitchenBudget::where('central_kitchen_id', $po->central_kitchen_id)->where('period', $period)->value('amount');
+        if (! $budget) {
+            return '';
+        }
+        $spent = PurchaseOrder::where('central_kitchen_id', $po->central_kitchen_id)
+            ->where('order_date', 'like', $period.'%')
+            ->whereIn('status', ['APPROVED', 'PARTIAL', 'COMPLETED'])
+            ->sum('grand_total');
+        if ($spent > (float) $budget) {
+            return ' PERINGATAN: belanja '.mbg_currency((float) $spent).' melebihi budget '.mbg_currency((float) $budget).'.';
+        }
+
+        return '';
     }
 
     public function reject(Request $request, PurchaseOrder $po)

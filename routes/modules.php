@@ -13,6 +13,7 @@ use App\Http\Controllers\DemandPlanController;
 use App\Http\Controllers\DistributionController;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\GoodsReceiptController;
+use App\Http\Controllers\HygieneController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MasterCatalogController;
@@ -70,6 +71,7 @@ Route::middleware('permission:school.view')->group(function () {
     Route::resource('schools', SchoolController::class);
     Route::get('/recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::post('/recipients', [RecipientController::class, 'store'])->name('recipients.store');
+    Route::post('/recipients/import', [RecipientController::class, 'import'])->name('recipients.import');
     Route::put('/recipients/{recipient}', [RecipientController::class, 'update'])->name('recipients.update');
     Route::delete('/recipients/{recipient}', [RecipientController::class, 'destroy'])->name('recipients.destroy');
     Route::post('/schools/{school}/recipients', [SchoolController::class, 'storeRecipient'])->name('schools.recipients.store');
@@ -79,6 +81,10 @@ Route::middleware('permission:school.view')->group(function () {
 // Produk & bahan
 Route::middleware('permission:product.view')->group(function () {
     Route::resource('ingredients', IngredientController::class);
+    Route::post('/ingredients/{ingredient}/substitutions', [IngredientController::class, 'storeSubstitution'])->name('ingredients.substitutions.store');
+    Route::post('/ingredients/{ingredient}/substitutions/{substitution}/approve', [IngredientController::class, 'approveSubstitution'])->name('ingredients.substitutions.approve');
+    Route::delete('/ingredients/{ingredient}/substitutions/{substitution}', [IngredientController::class, 'destroySubstitution'])->name('ingredients.substitutions.destroy');
+    Route::post('/ingredients/{ingredient}/apply-safety', [IngredientController::class, 'applySafety'])->name('ingredients.apply-safety');
     Route::resource('products', ProductController::class);
     Route::get('/units', [UnitController::class, 'index'])->name('units.index');
     Route::post('/units', [UnitController::class, 'store'])->name('units.store');
@@ -294,6 +300,7 @@ Route::middleware('permission:demand.view')->group(function () {
     Route::post('/demand-plans', [DemandPlanController::class, 'store'])->name('demand-plans.store');
     Route::get('/demand-plans/{plan}', [DemandPlanController::class, 'show'])->name('demand-plans.show');
     Route::post('/demand-plans/{plan}/approve', [DemandPlanController::class, 'approve'])->name('demand-plans.approve');
+    Route::put('/demand-plans/{plan}/lines/{line}', [DemandPlanController::class, 'updateLine'])->name('demand-plans.lines.update');
 });
 Route::middleware('permission:mrp.view')->group(function () {
     Route::get('/mrp', [MrpController::class, 'index'])->name('mrp.index');
@@ -348,6 +355,9 @@ Route::middleware('permission:qms.view')->group(function () {
     Route::post('/ncrs/{ncr}/close', [QualityInspectionController::class, 'closeNcr'])->name('ncrs.close')->middleware('permission:qc.create');
     Route::get('/temp-logs', [QualityInspectionController::class, 'tempLogs'])->name('temp.index');
     Route::post('/temp-logs', [QualityInspectionController::class, 'storeTempLog'])->name('temp.store')->middleware('permission:qc.create');
+    Route::get('/hygiene', [HygieneController::class, 'index'])->name('hygiene.index');
+    Route::get('/hygiene/create', [HygieneController::class, 'create'])->name('hygiene.create')->middleware('permission:qc.create');
+    Route::post('/hygiene', [HygieneController::class, 'store'])->name('hygiene.store')->middleware('permission:qc.create');
 });
 
 // Traceability & Recall

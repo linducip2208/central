@@ -10,6 +10,7 @@ use App\Models\Ingredient;
 use App\Models\Menu;
 use App\Models\PurchaseRequest;
 use App\Models\School;
+use App\Services\BomService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -67,8 +68,8 @@ class DemandController extends Controller
         return redirect()->route('demands.index')->with('success', 'Demand '.$demand->code.' tersimpan.');
     }
 
-    /** Agregasi demand menjadi draft Purchase Request (explosion via resep). */
-    public function generatePr(Request $request, NumberService $numbers)
+    /** Agregasi demand menjadi draft Purchase Request (explosion via BOM, fallback resep). */
+    public function generatePr(Request $request, NumberService $numbers, BomService $bom)
     {
         $request->validate([
             'central_kitchen_id' => 'required|exists:central_kitchens,id',
@@ -96,20 +97,18 @@ class DemandController extends Controller
             }
             foreach ($d->menu->items as $mi) {
                 $portions = (int) $d->portions * (float) $mi->qty_per_portion;
-                $recipe = $mi->product->activeRecipe;
-                if (! $recipe) {
-                    continue;
-                }
-                foreach ($recipe->items as $ri) {
-                    $qty = $ri->requiredFor($portions, (float) $recipe->yield_qty);
-                    $key = $ri->ingredient_id;
-                    $needs[$key] = ($needs[$key] ?? 0) + $qty;
+                try {
+                    foreach ($bom->explode((int) $mi->product_id, $portions) as $need) {
+                        $needs[$need['ingredient_id']] = ($needs[$need['ingredient_id']] ?? 0) + $need['qty'];
+                    }
+                } catch (\Throwable) {
+                    continue; // lewati produk tanpa BOM/resep valid
                 }
             }
         }
 
         if (empty($needs)) {
-            return back()->with('error', 'Tidak ada kebutuhan bahan yang bisa dihitung (resep belum lengkap).');
+            return back()->with('error', 'Tidak ada kebutuhan bahan yang bisa dihitung (BOM/resep belum lengkap).');
         }
 
         $pr = DB::transaction(function () use ($request, $numbers, $needs, $demands) {

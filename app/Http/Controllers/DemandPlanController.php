@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\CentralKitchen;
 use App\Models\DemandPlan;
+use App\Models\DemandPlanLine;
 use App\Models\Menu;
 use App\Models\School;
 use App\Services\ForecastService;
@@ -125,5 +126,20 @@ class DemandPlanController extends Controller
         $plan->update(['status' => 'APPROVED']);
 
         return back()->with('success', 'Demand plan disetujui. Jalankan MRP dari halaman ini.');
+    }
+
+    public function updateLine(Request $request, DemandPlan $plan, DemandPlanLine $line)
+    {
+        $this->ensureOrgAccess($plan);
+        abort_unless($plan->status === 'DRAFT', 422, 'Hanya plan DRAFT yang dapat disesuaikan.');
+        abort_unless($line->demand_plan_id === $plan->id, 422);
+        $data = $request->validate([
+            'attendance_adjustment' => 'nullable|integer|min:0',
+            'manual_adjustment' => 'nullable|integer',
+            'safety_stock' => 'nullable|integer|min:0',
+        ]);
+        $line->update(array_filter($data, fn ($v) => $v !== null));
+
+        return back()->with('success', 'Baris demand disesuaikan (net dihitung ulang).');
     }
 }

@@ -1,6 +1,12 @@
 @extends('layouts.app')
 @section('title', 'Penerima Manfaat')
 @section('subtitle', $allergyCount . ' penerima memiliki catatan alergi — perhatikan saat packing')
+@section('actions')
+<form method="POST" action="{{ route('recipients.import') }}" enctype="multipart/form-data" class="d-flex gap-1">@csrf
+<input name="file" type="file" accept=".csv" class="form-control form-control-sm" style="width:220px" required title="CSV: school_code,name,identifier,grade,class,gender,allergy"/>
+<button class="btn btn-sm btn-white" type="submit">Import CSV</button>
+</form>
+@endsection
 @section('content')
 <div class="card"><div class="card-body">
 <form method="GET" class="row g-2 mb-3">

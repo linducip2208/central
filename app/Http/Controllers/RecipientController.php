@@ -72,4 +72,48 @@ class RecipientController extends Controller
 
         return back()->with('success', 'Penerima dihapus.');
     }
+
+    /** Import CSV: school_code,name,identifier,grade,class,gender,allergy. */
+    public function import(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:csv,txt|max:2048']);
+        $path = $request->file('file')->getRealPath();
+        $handle = fopen($path, 'r');
+        $header = fgetcsv($handle);
+        $expected = ['school_code', 'name', 'identifier', 'grade', 'class', 'gender', 'allergy'];
+        if (array_map('strtolower', $header ?? []) !== $expected) {
+            fclose($handle);
+
+            return back()->with('error', 'Header harus: '.implode(',', $expected));
+        }
+        $ok = 0;
+        $errors = [];
+        $rowNo = 1;
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNo++;
+            if (count($row) < 2 || trim($row[1] ?? '') === '') {
+                continue;
+            }
+            $school = School::where('code', trim($row[0]))->first();
+            if (! $school || (int) $school->organization_id !== (int) $request->user()->organization_id) {
+                $errors[] = "Baris {$rowNo}: sekolah tidak dikenal.";
+
+                continue;
+            }
+            $gender = strtoupper(trim($row[5] ?? ''));
+            $school->recipients()->create([
+                'name' => trim($row[1]), 'identifier' => trim($row[2] ?? '') ?: null,
+                'grade' => trim($row[3] ?? '') ?: null, 'class_name' => trim($row[4] ?? '') ?: null,
+                'gender' => in_array($gender, ['L', 'P']) ? $gender : null,
+                'allergy_notes' => trim($row[6] ?? '') ?: null, 'is_active' => true,
+            ]);
+            $ok++;
+            if ($ok >= 2000) {
+                break;
+            }
+        }
+        fclose($handle);
+
+        return back()->with('success', "Import selesai: {$ok} penerima.".($errors ? ' Gagal: '.implode(' ', array_slice($errors, 0, 5)) : ''));
+    }
 }

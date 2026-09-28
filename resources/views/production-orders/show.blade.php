@@ -19,7 +19,11 @@
 <tbody>
 @foreach($order->items as $it)
 @php $av = $availability[$it->id] ?? ['need' => 0, 'available' => 0, 'ok' => true]; $var = (float) $it->qty_consumed - (float) $it->qty_required; @endphp
-<tr><td>{{ $it->ingredient->name ?? '-' }}</td><td class="text-end">{{ number_format($it->qty_required, 2) }}</td><td class="text-end">{{ number_format($it->qty_consumed, 2) }}</td><td class="text-end @if(!$av['ok']) text-red fw-bold @endif">{{ number_format($av['available'], 2) }}</td><td class="text-end @if(abs($var) > 0.001) text-yellow @endif">{{ $var > 0 ? '+' : '' }}{{ number_format($var, 2) }}</td></tr>
+<tr><td>{{ $it->ingredient->name ?? '-' }}
+@if(!$av['ok'] && $it->ingredient?->approvedSubstitutes->isNotEmpty())
+<div class="text-secondary small">Alternatif: @foreach($it->ingredient->approvedSubstitutes as $s)<span class="badge bg-blue-lt me-1">{{ $s->substitute->name ?? '' }} ×{{ $s->ratio }}</span>@endforeach</div>
+@endif
+</td><td class="text-end">{{ number_format($it->qty_required, 2) }}</td><td class="text-end">{{ number_format($it->qty_consumed, 2) }}</td><td class="text-end @if(!$av['ok']) text-red fw-bold @endif">{{ number_format($av['available'], 2) }}</td><td class="text-end @if(abs($var) > 0.001) text-yellow @endif">{{ $var > 0 ? '+' : '' }}{{ number_format($var, 2) }}</td></tr>
 @endforeach
 </tbody></table></div></div>
 

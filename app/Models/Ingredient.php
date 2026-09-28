@@ -55,6 +55,16 @@ class Ingredient extends Model
         return $this->hasMany(SupplierPriceList::class);
     }
 
+    public function substitutions()
+    {
+        return $this->hasMany(IngredientSubstitution::class);
+    }
+
+    public function approvedSubstitutes()
+    {
+        return $this->hasMany(IngredientSubstitution::class)->where('is_approved', true)->with('substitute');
+    }
+
     public function scopeActive($q)
     {
         return $q->where('is_active', true);

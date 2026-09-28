@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Ingredient;
+use App\Models\IngredientSubstitution;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Unit;
 use App\Models\Warehouse;
+use App\Services\ForecastService;
 use Illuminate\Http\Request;
 
 class IngredientController extends Controller
@@ -68,7 +70,7 @@ class IngredientController extends Controller
     public function show(Request $request, Ingredient $ingredient)
     {
         $this->ensureOrgAccess($ingredient);
-        $ingredient->load(['allergens', 'preferredSupplier', 'unit']);
+        $ingredient->load(['allergens', 'preferredSupplier', 'unit', 'substitutions.substitute']);
         $stocks = InventoryStock::with(['warehouse', 'batch'])
             ->where('item_type', 'ingredient')->where('item_id', $ingredient->id)
             ->when($request->user()->central_kitchen_id, fn ($q) => $q->whereHas('warehouse', fn ($w) => $w->where('central_kitchen_id', $request->user()->central_kitchen_id)))
@@ -97,6 +99,53 @@ class IngredientController extends Controller
         $ingredient->allergens()->sync($allergens);
 
         return redirect()->route('ingredients.show', $ingredient)->with('success', 'Bahan baku diperbarui.');
+    }
+
+    public function storeSubstitution(Request $request, Ingredient $ingredient)
+    {
+        $this->ensureOrgAccess($ingredient);
+        $data = $request->validate([
+            'substitute_id' => 'required|exists:ingredients,id|different:ingredient',
+            'ratio' => 'required|numeric|min:0.0001',
+            'notes' => 'nullable|string',
+        ]);
+        abort_if((int) $data['substitute_id'] === $ingredient->id, 422);
+        $sub = Ingredient::findOrFail($data['substitute_id']);
+        $this->ensureOrgAccess($sub);
+        $ingredient->substitutions()->updateOrCreate(
+            ['substitute_id' => $sub->id],
+            $data + ['is_approved' => false]
+        );
+
+        return back()->with('success', 'Alternatif ditambahkan. Perlu persetujuan sebelum dipakai.');
+    }
+
+    public function approveSubstitution(Request $request, Ingredient $ingredient, IngredientSubstitution $substitution)
+    {
+        $this->ensureOrgAccess($ingredient);
+        abort_unless($substitution->ingredient_id === $ingredient->id, 422);
+        $substitution->update(['is_approved' => true, 'approved_by' => $request->user()->id]);
+
+        return back()->with('success', 'Alternatif disetujui.');
+    }
+
+    public function destroySubstitution(Ingredient $ingredient, IngredientSubstitution $substitution)
+    {
+        $this->ensureOrgAccess($ingredient);
+        abort_unless($substitution->ingredient_id === $ingredient->id, 422);
+        $substitution->delete();
+
+        return back()->with('success', 'Alternatif dihapus.');
+    }
+
+    public function applySafety(Ingredient $ingredient, ForecastService $forecast)
+    {
+        $this->ensureOrgAccess($ingredient);
+        $avg = $forecast->avgDailyConsumption('ingredient', $ingredient->id);
+        $safety = $forecast->safetyStock($avg, (int) $ingredient->lead_time_days);
+        $ingredient->update(['safety_stock' => $safety, 'reorder_point' => round($safety + $avg * (int) $ingredient->lead_time_days, 3)]);
+
+        return back()->with('success', "Safety stock dihitung ulang: {$safety} (konsumsi rata-rata {$avg}/hari).");
     }
 
     public function destroy(Ingredient $ingredient)

@@ -28,7 +28,7 @@ Login default: `admin@mbg.id / password123` (super-admin); plus
 
 ## 3. Database, migrasi, seeding
 
-- `php artisan migrate` — 20 migrasi: 16 domain (`2026_01_01_00000{1..9}`,
+- `php artisan migrate` — 21 migrasi: 17 domain (`2026_01_01_00000{1..9}`,
   `000010` sanctum, `000011` master expansion, `000012` planning,
   `000013` quality/trace, `000014` alter operasional, `000015` indeks performa)
   + 4 vendor (spatie permission & activitylog).
@@ -195,7 +195,7 @@ autentikasi) + layar operasional mobile-friendly + scan barcode.
 
 ## 22. Testing
 
-`php artisan test` — 94 test: auth/RBAC/isolasi-org, render ±70 halaman,
+`php artisan test` — 99 test: auth/RBAC/isolasi-org, render ±70 halaman,
 inventory (FEFO/rollback/duplikat/konsistensi), procurement (+RFQ/invoice),
 produksi (+MES/capacity), distribusi, BOM (explosion/siklus/versi),
 MRP (netting/explanation/to-PR), WMS (lokasi/putaway/karantina/scan),
@@ -214,7 +214,7 @@ rate-limit API, token Sanctum per-device + pencabutan.
 
 ## 24. Status: IMPLEMENTED vs ROADMAP
 
-IMPLEMENTED: semua modul §5 + engine §7–§21 + 94 test.
+IMPLEMENTED: semua modul §5 + engine §7–§21 + 99 test.
 ROADMAP (butuh sistem eksternal): payment gateway riil, SMS gateway,
 aplikasi mobile native, API v2 (flag sudah ada, nonaktif), SSO/LDAP,
 multi-database per tenant, EDI supplier.

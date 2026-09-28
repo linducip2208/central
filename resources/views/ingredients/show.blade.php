@@ -19,7 +19,30 @@
 <dt class="col-5">Daya simpan</dt><dd class="col-7">{{ $ingredient->shelf_life_days }} hari</dd>
 <dt class="col-5">Total stok</dt><dd class="col-7 fw-bold">{{ number_format($stocks->sum('qty'), 2) }} {{ $ingredient->unit->symbol ?? '' }}</dd>
 </dl>
-<form method="POST" action="{{ route('ingredients.destroy', $ingredient) }}" onsubmit="return confirm('Hapus bahan ini?')">@csrf @method('DELETE')<button class="btn btn-outline-danger btn-sm" type="submit">Hapus</button></form>
+<form method="POST" action="{{ route('ingredients.apply-safety', $ingredient) }}" class="d-inline">@csrf<button class="btn btn-white btn-sm" type="submit" title="Hitung dari konsumsi rata-rata × lead time">Hitung safety ulang</button></form>
+<form method="POST" action="{{ route('ingredients.destroy', $ingredient) }}" class="d-inline" onsubmit="return confirm('Hapus bahan ini?')">@csrf @method('DELETE')<button class="btn btn-outline-danger btn-sm" type="submit">Hapus</button></form>
+</div></div>
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Alternatif pengganti (approved)</h3></div>
+<div class="list-group list-group-flush">
+@forelse($ingredient->substitutions as $s)
+<div class="list-group-item d-flex justify-content-between align-items-center">
+<div><div class="fw-bold">{{ $s->substitute->name ?? '#' }} <span class="text-secondary">× {{ $s->ratio }}</span></div>
+<div class="text-secondary small">{{ $s->notes ?? '' }}</div></div>
+<div class="d-flex gap-1">
+@if(!$s->is_approved)<form method="POST" action="{{ route('ingredients.substitutions.approve', [$ingredient, $s]) }}">@csrf<button class="btn btn-sm btn-success" type="submit">Setujui</button></form>@else<span class="badge bg-green-lt">APPROVED</span>@endif
+<form method="POST" action="{{ route('ingredients.substitutions.destroy', [$ingredient, $s]) }}" onsubmit="return confirm('Hapus?')">@csrf @method('DELETE')<button class="btn btn-sm btn-ghost-danger" type="submit"><i class="ti ti-trash"></i></button></form>
+</div>
+</div>
+@empty<div class="list-group-item text-secondary">Belum ada alternatif.</div>@endforelse
+</div>
+<div class="card-body border-top">
+<form method="POST" action="{{ route('ingredients.substitutions.store', $ingredient) }}">@csrf
+<div class="row g-1">
+<div class="col-6"><select name="substitute_id" class="form-select form-select-sm" required><option value="">— pengganti —</option>@foreach(\App\Models\Ingredient::active()->where('id', '!=', $ingredient->id)->get() as $i)<option value="{{ $i->id }}">{{ $i->name }}</option>@endforeach</select></div>
+<div class="col-3"><input name="ratio" type="number" step="0.0001" min="0.0001" value="1" class="form-control form-control-sm" title="rasio"/></div>
+<div class="col-3"><button class="btn btn-sm btn-white w-100" type="submit">Tambah</button></div>
+</div>
+</form>
 </div></div>
 </div>
 <div class="col-lg-8">

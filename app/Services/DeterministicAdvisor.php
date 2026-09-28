@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Batch;
 use App\Models\Waste;
+use Carbon\Carbon;
 
 class DeterministicAdvisor implements AiAdvisorInterface
 {
@@ -48,6 +49,14 @@ class DeterministicAdvisor implements AiAdvisorInterface
             'label' => $r->reason, 'value' => (float) $r->loss,
             'reason' => number_format((float) $r->qty, 2).' unit terbuang dalam '.$days.' hari',
         ])->toArray();
+        // Pola hari: hari apa waste terbesar (SQLite + MySQL compatible via Carbon grouping di PHP).
+        $byDay = Waste::where('central_kitchen_id', $centralKitchenId)
+            ->whereDate('waste_date', '>=', $since)->get(['waste_date', 'cost_loss'])
+            ->groupBy(fn ($w) => Carbon::parse($w->waste_date)->locale('id')->dayName)
+            ->map(fn ($g) => (float) $g->sum('cost_loss'))->sortDesc();
+        if ($byDay->isNotEmpty()) {
+            $items[] = ['label' => 'Pola hari', 'value' => $byDay->first(), 'reason' => 'waste terbesar hari '.$byDay->keys()->first()];
+        }
 
         return new AdvisoryResult(
             'waste_analysis',

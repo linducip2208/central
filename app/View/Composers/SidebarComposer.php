@@ -52,6 +52,7 @@ class SidebarComposer
                 ['label' => 'Inspeksi QMS', 'route' => 'inspections.index', 'perm' => 'qms.view'],
                 ['label' => 'NCR / CAPA', 'route' => 'ncrs.index', 'perm' => 'qms.view'],
                 ['label' => 'Suhu CCP', 'route' => 'temp.index', 'perm' => 'qms.view'],
+                ['label' => 'Higiene', 'route' => 'hygiene.index', 'perm' => 'qms.view'],
                 ['label' => 'Packaging', 'route' => 'packagings.index', 'perm' => 'production.view'],
                 ['label' => 'Recall', 'route' => 'recalls.index', 'perm' => 'recall.view'],
             ]],

@@ -34,7 +34,7 @@ class ProductionOrderController extends Controller
     public function show(ProductionOrder $order, InventoryService $inventory)
     {
         $this->ensureOrgAccess($order);
-        $order->load(['items.ingredient.unit', 'product.unit', 'recipe', 'kitchenUnit', 'workCenter', 'operators.user']);
+        $order->load(['items.ingredient.unit', 'items.ingredient.approvedSubstitutes.substitute', 'product.unit', 'recipe', 'kitchenUnit', 'workCenter', 'operators.user']);
         $warehouses = Warehouse::where('central_kitchen_id', $order->central_kitchen_id)->get();
         $workCenters = WorkCenter::where('central_kitchen_id', $order->central_kitchen_id)->active()->get();
         $staff = User::where('organization_id', $order->organization_id)->active()->orderBy('name')->take(100)->get();

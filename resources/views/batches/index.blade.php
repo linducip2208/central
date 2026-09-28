@@ -9,7 +9,7 @@
 <div class="col-md-auto"><button class="btn btn-white" type="submit">Filter</button></div>
 </form>
 <div class="table-responsive"><table class="table table-vcenter card-table">
-<thead><tr><th>Batch</th><th>Item</th><th>Gudang</th><th>Produksi</th><th>Expired</th><th class="text-end">Sisa</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Batch</th><th>Item</th><th>Gudang</th><th>Produksi</th><th>Umur</th><th>Expired</th><th class="text-end">Sisa</th><th>Status</th><th></th></tr></thead>
 <tbody>
 @forelse($batches as $b)
 <tr>
@@ -17,6 +17,7 @@
 <td>{{ $b->item_name ?? $b->item_type.' #'.$b->item_id }}</td>
 <td class="text-secondary">{{ $b->warehouse->name ?? '-' }}</td>
 <td class="text-secondary">{{ $b->production_date ?? '-' }}</td>
+<td class="text-secondary">{{ $b->created_at->diffInDays(now()) }} hr</td>
 <td>@if($b->expiry_date)<span class="badge {{ \Carbon\Carbon::parse($b->expiry_date)->isPast() ? 'bg-red-lt' : (\Carbon\Carbon::parse($b->expiry_date)->diffInDays(now()) <= 30 ? 'bg-yellow-lt' : 'bg-green-lt') }}">{{ $b->expiry_date }}</span>@else<span class="text-secondary">—</span>@endif</td>
 <td class="text-end">{{ number_format($b->remaining_qty, 2) }}</td>
 <td><x-badge :status="$b->status"/></td>
@@ -25,7 +26,7 @@
 @if($b->status === 'BLOCKED')<form method="POST" action="{{ route('batches.unblock', $b) }}" class="d-inline">@csrf<button class="btn btn-sm btn-white" type="submit">Buka</button></form>@endif
 </td>
 </tr>
-@empty<tr><td colspan="8"><x-empty title="Tidak ada batch"/></td></tr>
+@empty<tr><td colspan="9"><x-empty title="Tidak ada batch"/></td></tr>
 @endforelse
 </tbody></table></div>
 <div class="mt-3">{{ $batches->links() }}</div>
