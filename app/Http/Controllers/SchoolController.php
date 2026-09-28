@@ -111,6 +111,7 @@ class SchoolController extends Controller
 
     public function destroyRecipient(Recipient $recipient)
     {
+        $this->ensureOrgAccess($recipient->school);
         $recipient->delete();
 
         return back()->with('success', 'Penerima dihapus.');

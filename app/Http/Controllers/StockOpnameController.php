@@ -41,7 +41,7 @@ class StockOpnameController extends Controller
             'opname_date' => 'required|date',
             'notes' => 'nullable|string',
         ]);
-        $warehouse = Warehouse::find($data['warehouse_id']);
+        $warehouse = $this->ensureWarehouse((int) $data['warehouse_id']);
         $opname = DB::transaction(function () use ($request, $data, $numbers, $warehouse) {
             $opname = StockOpname::create([
                 'organization_id' => $request->user()->organization_id,

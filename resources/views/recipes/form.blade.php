@@ -8,7 +8,12 @@
 <select name="product_id" class="form-select" required><option value="">—</option>@foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select></div>
 <div class="col-md-4"><label class="form-label">Nama resep *</label><input name="name" class="form-control" required/></div>
 <div class="col-md-2"><label class="form-label">Yield (hasil) *</label><input name="yield_qty" type="number" step="0.001" min="0.01" value="1" class="form-control" required/></div>
-<div class="col-md-2"><label class="form-label">Waktu masak (mnt)</label><input name="cook_time_minutes" type="number" min="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Siap (mnt)</label><input name="prep_time_minutes" type="number" min="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Masak (mnt)</label><input name="cook_time_minutes" type="number" min="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Dingin (mnt)</label><input name="cooling_time_minutes" type="number" min="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Sajian</label><input name="servings" type="number" min="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Berlaku dari</label><input name="effective_from" type="date" class="form-control" value="{{ now()->toDateString() }}"/></div>
+<div class="col-md-2"><label class="form-label">s.d.</label><input name="effective_to" type="date" class="form-control"/></div>
 <div class="col-md-12"><label class="form-label">Instruksi</label><textarea name="instructions" class="form-control" rows="2"></textarea></div>
 </div>
 <h4 class="mt-4">Bahan *</h4>

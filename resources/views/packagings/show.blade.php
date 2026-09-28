@@ -22,4 +22,26 @@
 @endforeach
 </tbody></table></div>
 </div></div>
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Material kemasan terpakai</h3></div>
+<div class="table-responsive"><table class="table table-vcenter card-table">
+<thead><tr><th>Material</th><th>Batch</th><th class="text-end">Qty</th></tr></thead>
+<tbody>
+@forelse($pkg->materialUsages as $mu)
+<tr><td>{{ $mu->ingredient->name ?? '' }}</td><td class="text-secondary">{{ $mu->batch->batch_no ?? '-' }}</td><td class="text-end">{{ number_format($mu->qty_used, 2) }}</td></tr>
+@empty<tr><td colspan="3" class="text-center text-secondary py-2">Belum ada pemakaian material.</td></tr>@endforelse
+</tbody></table></div>
+@if($materials->isNotEmpty())
+<div class="card-body border-top">
+<form method="POST" action="{{ route('packagings.materials', $pkg) }}">@csrf
+<div class="row g-1">
+<div class="col-6"><select name="ingredient_id" class="form-select form-select-sm" required>@foreach($materials as $m)<option value="{{ $m->id }}">{{ $m->name }} ({{ $m->unit->symbol ?? '' }})</option>@endforeach</select></div>
+<div class="col-4"><input name="qty" type="number" step="0.001" min="0.001" class="form-control form-control-sm" placeholder="qty *" required/></div>
+<div class="col-2"><button class="btn btn-sm btn-white w-100" type="submit">Pakai</button></div>
+</div>
+</form>
+</div>
+@else
+<div class="card-body border-top"><p class="text-secondary small mb-0">Belum ada bahan kategori PACKAGING. Tambahkan di master bahan.</p></div>
+@endif
+</div>
 @endsection

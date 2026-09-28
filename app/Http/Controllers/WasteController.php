@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Ingredient;
 use App\Models\Warehouse;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class WasteController extends Controller
 {
-    use FiltersRequests;
+    use AuthorizesOrgAccess, FiltersRequests;
 
     public function index(Request $request)
     {
@@ -44,6 +45,8 @@ class WasteController extends Controller
             'disposal_method' => 'nullable|string|max:40',
             'notes' => 'nullable|string',
         ]);
+        $this->ensureWarehouse((int) $data['warehouse_id']);
+        $this->ensureOrgAccess(Ingredient::findOrFail($data['ingredient_id']));
         try {
             $waste = DB::transaction(function () use ($request, $data, $numbers, $inventory) {
                 $ing = Ingredient::find($data['ingredient_id']);

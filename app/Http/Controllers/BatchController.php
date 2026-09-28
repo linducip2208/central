@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Batch;
 use App\Models\Ingredient;
@@ -11,7 +12,7 @@ use Illuminate\Http\Request;
 
 class BatchController extends Controller
 {
-    use FiltersRequests;
+    use AuthorizesOrgAccess, FiltersRequests;
 
     public function index(Request $request)
     {

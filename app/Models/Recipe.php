@@ -9,11 +9,19 @@ class Recipe extends Model
 {
     use Auditable;
 
-    protected $fillable = ['organization_id', 'product_id', 'code', 'name', 'version', 'yield_qty', 'yield_unit_id', 'instructions', 'cook_time_minutes', 'is_active'];
+    protected $fillable = ['organization_id', 'product_id', 'code', 'name', 'version', 'effective_from', 'effective_to', 'yield_qty', 'yield_unit_id', 'instructions', 'prep_time_minutes', 'cook_time_minutes', 'cooling_time_minutes', 'servings', 'is_active'];
 
     protected function casts(): array
     {
-        return ['yield_qty' => 'decimal:3', 'is_active' => 'boolean'];
+        return ['yield_qty' => 'decimal:3', 'is_active' => 'boolean', 'effective_from' => 'date', 'effective_to' => 'date'];
+    }
+
+    public function scopeEffective($q, ?string $date = null)
+    {
+        $date ??= now()->toDateString();
+
+        return $q->where(fn ($w) => $w->whereNull('effective_from')->orWhere('effective_from', '<=', $date))
+            ->where(fn ($w) => $w->whereNull('effective_to')->orWhere('effective_to', '>=', $date));
     }
 
     public function organization()

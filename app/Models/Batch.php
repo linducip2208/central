@@ -10,7 +10,7 @@ class Batch extends Model
 {
     use Auditable, SoftDeletes;
 
-    protected $fillable = ['organization_id', 'warehouse_id', 'item_type', 'item_id', 'batch_no', 'production_date', 'expiry_date', 'supplier_id', 'source_type', 'source_id', 'initial_qty', 'remaining_qty', 'unit_cost', 'status'];
+    protected $fillable = ['organization_id', 'warehouse_id', 'bin_id', 'item_type', 'item_id', 'batch_no', 'production_date', 'expiry_date', 'supplier_id', 'source_type', 'source_id', 'initial_qty', 'remaining_qty', 'unit_cost', 'status', 'hold_reason'];
 
     protected function casts(): array
     {
@@ -24,6 +24,16 @@ class Batch extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function bin()
+    {
+        return $this->belongsTo(WarehouseBin::class, 'bin_id');
+    }
+
+    public function isBlocked(): bool
+    {
+        return in_array($this->status, ['BLOCKED', 'EXPIRED']);
     }
 
     public function supplier()

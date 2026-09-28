@@ -49,6 +49,14 @@ class DistributionController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.qty' => 'required|integer|min:1',
         ]);
+        $this->ensureKitchen((int) $data['central_kitchen_id']);
+        if (! empty($data['packaging_id'])) {
+            $this->ensureOrgAccess(Packaging::findOrFail($data['packaging_id']));
+        }
+        foreach ($data['items'] as $it) {
+            $this->ensureSchool((int) $it['school_id']);
+            $this->ensureOrgAccess(Product::findOrFail($it['product_id']));
+        }
 
         $dist = DB::transaction(function () use ($request, $data, $numbers) {
             $dist = Distribution::create([

@@ -33,4 +33,9 @@ class Packaging extends Model
     {
         return $this->hasMany(PackagingItem::class);
     }
+
+    public function materialUsages()
+    {
+        return $this->hasMany(PackagingMaterialUsage::class);
+    }
 }

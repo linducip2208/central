@@ -47,6 +47,13 @@ class DemandController extends Controller
             'source' => 'required|in:SCHOOL,FORECAST,MANUAL',
             'notes' => 'nullable|string',
         ]);
+        $this->ensureKitchen((int) $data['central_kitchen_id']);
+        if (! empty($data['school_id'])) {
+            $this->ensureSchool((int) $data['school_id']);
+        }
+        if (! empty($data['menu_id'])) {
+            $this->ensureOrgAccess(Menu::findOrFail($data['menu_id']));
+        }
         $data['organization_id'] = $request->user()->organization_id;
         $data['code'] = $numbers->next('DM');
         $data['status'] = 'DRAFT';
@@ -68,6 +75,8 @@ class DemandController extends Controller
             'from' => 'required|date', 'to' => 'required|date|after_or_equal:from',
             'warehouse_id' => 'required|exists:warehouses,id',
         ]);
+        $this->ensureKitchen((int) $request->central_kitchen_id);
+        $this->ensureWarehouse((int) $request->warehouse_id);
 
         $demands = Demand::with(['menu.items.product.activeRecipe.items'])
             ->where('organization_id', $request->user()->organization_id)

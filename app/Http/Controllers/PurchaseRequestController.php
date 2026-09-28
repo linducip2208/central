@@ -9,6 +9,7 @@ use App\Models\CentralKitchen;
 use App\Models\Ingredient;
 use App\Models\PurchaseRequest;
 use App\Models\Warehouse;
+use App\Services\ApprovalService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 
@@ -45,6 +46,13 @@ class PurchaseRequestController extends Controller
             'items.*.ingredient_id' => 'required|exists:ingredients,id',
             'items.*.qty' => 'required|numeric|min:0.001',
         ]);
+        $this->ensureKitchen((int) $data['central_kitchen_id']);
+        if (! empty($data['warehouse_id'])) {
+            $this->ensureWarehouse((int) $data['warehouse_id']);
+        }
+        foreach ($data['items'] as $it) {
+            $this->ensureOrgAccess(Ingredient::findOrFail($it['ingredient_id']));
+        }
         $pr = PurchaseRequest::create([
             'organization_id' => $request->user()->organization_id,
             'central_kitchen_id' => $data['central_kitchen_id'],
@@ -90,6 +98,7 @@ class PurchaseRequestController extends Controller
             $item->update(['qty_approved' => $items['approved'][$item->id] ?? $item->qty_requested]);
         }
         $pr->update(['status' => 'APPROVED', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
+        app(ApprovalService::class)->decide($pr, 'APPROVE');
         if ($pr->requester) {
             app(NotificationService::class)->send([$pr->requester], 'pr_approved', [
                 'number' => $pr->number, 'by' => $request->user()->name,
@@ -105,6 +114,7 @@ class PurchaseRequestController extends Controller
         $request->validate(['reject_reason' => 'required|string']);
         abort_unless(in_array($pr->status, ['SUBMITTED', 'DRAFT']), 422);
         $pr->update(['status' => 'REJECTED', 'reject_reason' => $request->reject_reason]);
+        app(ApprovalService::class)->decide($pr, 'REJECT', $request->reject_reason);
         if ($pr->requester) {
             app(NotificationService::class)->send([$pr->requester], 'pr_rejected', [
                 'number' => $pr->number, 'reason' => $request->reject_reason,

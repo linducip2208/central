@@ -1,31 +1,47 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\BatchController;
+use App\Http\Controllers\BomController;
+use App\Http\Controllers\CapacityController;
 use App\Http\Controllers\CostingController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DemandController;
+use App\Http\Controllers\DemandPlanController;
 use App\Http\Controllers\DistributionController;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\MasterCatalogController;
 use App\Http\Controllers\MenuController;
+use App\Http\Controllers\MrpController;
 use App\Http\Controllers\PackagingController;
+use App\Http\Controllers\PortalController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionOrderController;
 use App\Http\Controllers\ProductionPlanController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\QualityControlController;
+use App\Http\Controllers\QualityInspectionController;
+use App\Http\Controllers\RecallController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RfqController;
 use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierInvoiceController;
+use App\Http\Controllers\TmsController;
+use App\Http\Controllers\TraceController;
 use App\Http\Controllers\UnitController;
 use App\Http\Controllers\WasteController;
+use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\WmsController;
 use Illuminate\Support\Facades\Route;
 
 // Master: organisasi & fasilitas
@@ -44,6 +60,10 @@ Route::middleware('permission:org.view')->group(function () {
 // Partners
 Route::middleware('permission:supplier.view')->group(function () {
     Route::resource('suppliers', SupplierController::class);
+    Route::post('/suppliers/{supplier}/contacts', [SupplierController::class, 'storeContact'])->name('suppliers.contacts.store');
+    Route::post('/suppliers/{supplier}/addresses', [SupplierController::class, 'storeAddress'])->name('suppliers.addresses.store');
+    Route::post('/suppliers/{supplier}/contracts', [SupplierController::class, 'storeContract'])->name('suppliers.contracts.store');
+    Route::post('/suppliers/{supplier}/prices', [SupplierController::class, 'storePrice'])->name('suppliers.prices.store');
 });
 Route::middleware('permission:school.view')->group(function () {
     Route::resource('schools', SchoolController::class);
@@ -67,6 +87,11 @@ Route::middleware('permission:product.view')->group(function () {
     Route::delete('/unit-conversions/{conversion}', [UnitController::class, 'destroyConversion'])->name('unit-conversions.destroy');
 });
 Route::middleware('permission:menu.view')->group(function () {
+    Route::get('/menu-cycles', [MenuController::class, 'cycles'])->name('menu-cycles.index');
+    Route::post('/menu-cycles', [MenuController::class, 'storeCycle'])->name('menu-cycles.store');
+    Route::get('/menu-cycles/{cycle}', [MenuController::class, 'cycleShow'])->name('menu-cycles.show');
+    Route::post('/menu-cycles/{cycle}/days', [MenuController::class, 'storeCycleDay'])->name('menu-cycles.days');
+    Route::post('/menu-cycles/{cycle}/approve', [MenuController::class, 'approveCycle'])->name('menu-cycles.approve');
     Route::resource('menus', MenuController::class)->only(['index', 'create', 'store', 'show', 'destroy']);
     Route::post('/menus/{menu}/status', [MenuController::class, 'updateStatus'])->name('menus.status');
     Route::post('/menus/{menu}/nutrition', [MenuController::class, 'storeNutrition'])->name('menus.nutrition');
@@ -151,12 +176,17 @@ Route::middleware('permission:production.view')->group(function () {
     Route::post('/production-orders/{order}/consume', [ProductionOrderController::class, 'consume'])->name('production-orders.consume')->middleware('permission:production.create');
     Route::post('/production-orders/{order}/complete', [ProductionOrderController::class, 'complete'])->name('production-orders.complete')->middleware('permission:production.create');
     Route::post('/production-orders/{order}/cancel', [ProductionOrderController::class, 'cancel'])->name('production-orders.cancel')->middleware('permission:production.create');
+    Route::post('/production-orders/{order}/work-center', [ProductionOrderController::class, 'assignWorkCenter'])->name('production-orders.work-center')->middleware('permission:production.create');
+    Route::post('/production-orders/{order}/operator', [ProductionOrderController::class, 'assignOperator'])->name('production-orders.operator')->middleware('permission:production.create');
+    Route::post('/production-orders/{order}/material-check', [ProductionOrderController::class, 'materialCheck'])->name('production-orders.material-check')->middleware('permission:production.create');
+    Route::post('/production-orders/{order}/downtime', [ProductionOrderController::class, 'recordDowntime'])->name('production-orders.downtime')->middleware('permission:production.create');
 
     Route::get('/packagings', [PackagingController::class, 'index'])->name('packagings.index');
     Route::get('/packagings/create', [PackagingController::class, 'create'])->name('packagings.create')->middleware('permission:production.create');
     Route::post('/packagings', [PackagingController::class, 'store'])->name('packagings.store')->middleware('permission:production.create');
     Route::get('/packagings/{pkg}', [PackagingController::class, 'show'])->name('packagings.show');
     Route::post('/packagings/{pkg}/complete', [PackagingController::class, 'complete'])->name('packagings.complete')->middleware('permission:production.create');
+    Route::post('/packagings/{pkg}/materials', [PackagingController::class, 'useMaterial'])->name('packagings.materials')->middleware('permission:production.create');
 });
 Route::middleware('permission:qc.view')->group(function () {
     Route::get('/quality-controls', [QualityControlController::class, 'index'])->name('quality-controls.index');
@@ -188,6 +218,7 @@ Route::middleware('permission:waste.view')->group(function () {
 });
 Route::middleware('permission:costing.view')->group(function () {
     Route::get('/costings', [CostingController::class, 'index'])->name('costings.index');
+    Route::get('/costings/history', [CostingController::class, 'history'])->name('costings.history');
     Route::get('/costings/{costing}', [CostingController::class, 'show'])->name('costings.show');
 });
 
@@ -199,6 +230,11 @@ Route::middleware('permission:report.view')->group(function () {
     Route::get('/reports/delivery', [ReportController::class, 'delivery'])->name('reports.delivery');
     Route::get('/reports/financial', [ReportController::class, 'financial'])->name('reports.financial');
     Route::get('/reports/expiry', [ReportController::class, 'expiry'])->name('reports.expiry');
+    Route::get('/reports/intelligence', [ReportController::class, 'intelligence'])->name('reports.intelligence');
+    Route::get('/reports/waste', [ReportController::class, 'waste'])->name('reports.waste');
+    Route::get('/reports/supplier', [ReportController::class, 'supplier'])->name('reports.supplier');
+    Route::get('/reports/recall', [ReportController::class, 'recall'])->name('reports.recall');
+    Route::get('/reports/nutrition', [ReportController::class, 'nutrition'])->name('reports.nutrition');
 });
 
 // Notifications
@@ -223,4 +259,148 @@ Route::middleware('permission:audit.view')->group(function () {
 Route::middleware('permission:setting.view')->group(function () {
     Route::get('/settings', [AdminController::class, 'settingIndex'])->name('settings.index');
     Route::post('/settings', [AdminController::class, 'settingStore'])->name('settings.store');
+});
+
+// BOM
+Route::middleware('permission:bom.view')->group(function () {
+    Route::get('/boms', [BomController::class, 'index'])->name('boms.index');
+    Route::get('/boms/create', [BomController::class, 'create'])->name('boms.create')->middleware('permission:bom.create');
+    Route::post('/boms', [BomController::class, 'store'])->name('boms.store')->middleware('permission:bom.create');
+    Route::get('/boms/{bom}', [BomController::class, 'show'])->name('boms.show');
+    Route::post('/boms/{bom}/approve', [BomController::class, 'approve'])->name('boms.approve')->middleware('permission:bom.approve');
+    Route::delete('/boms/{bom}', [BomController::class, 'destroy'])->name('boms.destroy')->middleware('permission:bom.create');
+});
+
+// Demand plans & MRP
+Route::middleware('permission:demand.view')->group(function () {
+    Route::get('/demand-plans', [DemandPlanController::class, 'index'])->name('demand-plans.index');
+    Route::get('/demand-plans/create', [DemandPlanController::class, 'create'])->name('demand-plans.create');
+    Route::post('/demand-plans', [DemandPlanController::class, 'store'])->name('demand-plans.store');
+    Route::get('/demand-plans/{plan}', [DemandPlanController::class, 'show'])->name('demand-plans.show');
+    Route::post('/demand-plans/{plan}/approve', [DemandPlanController::class, 'approve'])->name('demand-plans.approve');
+});
+Route::middleware('permission:mrp.view')->group(function () {
+    Route::get('/mrp', [MrpController::class, 'index'])->name('mrp.index');
+    Route::post('/mrp/run', [MrpController::class, 'run'])->name('mrp.run')->middleware('permission:mrp.run');
+    Route::get('/mrp/{run}', [MrpController::class, 'show'])->name('mrp.show');
+    Route::post('/mrp/{run}/to-pr', [MrpController::class, 'toPr'])->name('mrp.to-pr')->middleware('permission:pr.create');
+});
+
+// RFQ & Invoices
+Route::middleware('permission:rfq.view')->group(function () {
+    Route::get('/rfqs', [RfqController::class, 'index'])->name('rfqs.index');
+    Route::get('/rfqs/create', [RfqController::class, 'create'])->name('rfqs.create')->middleware('permission:rfq.create');
+    Route::post('/rfqs', [RfqController::class, 'store'])->name('rfqs.store')->middleware('permission:rfq.create');
+    Route::get('/rfqs/{rfq}', [RfqController::class, 'show'])->name('rfqs.show');
+    Route::post('/rfqs/{rfq}/quotations', [RfqController::class, 'storeQuotation'])->name('rfqs.quotations')->middleware('permission:rfq.create');
+    Route::post('/rfqs/{rfq}/award', [RfqController::class, 'award'])->name('rfqs.award')->middleware('permission:po.create');
+});
+Route::middleware('permission:invoice.view')->group(function () {
+    Route::get('/invoices', [SupplierInvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('/invoices/create', [SupplierInvoiceController::class, 'create'])->name('invoices.create');
+    Route::post('/invoices', [SupplierInvoiceController::class, 'store'])->name('invoices.store');
+    Route::get('/invoices/{invoice}', [SupplierInvoiceController::class, 'show'])->name('invoices.show');
+    Route::post('/invoices/{invoice}/verify', [SupplierInvoiceController::class, 'verify'])->name('invoices.verify')->middleware('permission:invoice.verify');
+    Route::post('/invoices/{invoice}/pay', [SupplierInvoiceController::class, 'markPaid'])->name('invoices.pay')->middleware('permission:invoice.verify');
+});
+
+// WMS
+Route::middleware('permission:wms.view')->group(function () {
+    Route::get('/wms/locations', [WmsController::class, 'locations'])->name('wms.locations');
+    Route::post('/wms/zones', [WmsController::class, 'storeZone'])->name('wms.zones.store')->middleware('permission:inventory.adjust');
+    Route::post('/wms/racks', [WmsController::class, 'storeRack'])->name('wms.racks.store')->middleware('permission:inventory.adjust');
+    Route::post('/wms/bins', [WmsController::class, 'storeBin'])->name('wms.bins.store')->middleware('permission:inventory.adjust');
+    Route::post('/wms/putaway/{batch}', [WmsController::class, 'putaway'])->name('wms.putaway')->middleware('permission:inventory.adjust');
+    Route::post('/wms/quarantine/{batch}', [WmsController::class, 'quarantine'])->name('wms.quarantine')->middleware('permission:qc.create');
+    Route::post('/wms/release/{batch}', [WmsController::class, 'release'])->name('wms.release')->middleware('permission:qc.create');
+    Route::get('/wms/scan', [WmsController::class, 'scan'])->name('wms.scan');
+});
+
+// QMS
+Route::middleware('permission:qms.view')->group(function () {
+    Route::get('/inspections/templates', [QualityInspectionController::class, 'templates'])->name('inspections.templates');
+    Route::post('/inspections/templates', [QualityInspectionController::class, 'storeTemplate'])->name('inspections.templates.store')->middleware('permission:qc.create');
+    Route::get('/inspections', [QualityInspectionController::class, 'index'])->name('inspections.index');
+    Route::get('/inspections/create', [QualityInspectionController::class, 'create'])->name('inspections.create')->middleware('permission:qc.create');
+    Route::post('/inspections', [QualityInspectionController::class, 'store'])->name('inspections.store')->middleware('permission:qc.create');
+    Route::get('/inspections/{inspection}', [QualityInspectionController::class, 'show'])->name('inspections.show');
+    Route::post('/inspections/{inspection}/ncr', [QualityInspectionController::class, 'storeNcr'])->name('inspections.ncr')->middleware('permission:qc.create');
+    Route::get('/ncrs', [QualityInspectionController::class, 'ncrs'])->name('ncrs.index');
+    Route::get('/ncrs/{ncr}', [QualityInspectionController::class, 'ncrShow'])->name('ncrs.show');
+    Route::post('/ncrs/{ncr}/capa', [QualityInspectionController::class, 'storeCapa'])->name('ncrs.capa')->middleware('permission:qc.create');
+    Route::post('/capa/{capa}/complete', [QualityInspectionController::class, 'completeCapa'])->name('capa.complete')->middleware('permission:qc.create');
+    Route::post('/ncrs/{ncr}/close', [QualityInspectionController::class, 'closeNcr'])->name('ncrs.close')->middleware('permission:qc.create');
+    Route::get('/temp-logs', [QualityInspectionController::class, 'tempLogs'])->name('temp.index');
+    Route::post('/temp-logs', [QualityInspectionController::class, 'storeTempLog'])->name('temp.store')->middleware('permission:qc.create');
+});
+
+// Traceability & Recall
+Route::middleware('permission:inventory.view')->group(function () {
+    Route::get('/trace', [TraceController::class, 'form'])->name('trace.form');
+    Route::post('/trace', [TraceController::class, 'lookup'])->name('trace.lookup');
+    Route::get('/trace/{batch}', [TraceController::class, 'batch'])->name('trace.batch');
+});
+Route::middleware('permission:recall.view')->group(function () {
+    Route::get('/recalls', [RecallController::class, 'index'])->name('recalls.index');
+    Route::get('/recalls/create', [RecallController::class, 'create'])->name('recalls.create')->middleware('permission:recall.create');
+    Route::post('/recalls', [RecallController::class, 'store'])->name('recalls.store')->middleware('permission:recall.create');
+    Route::get('/recalls/{recall}', [RecallController::class, 'show'])->name('recalls.show');
+    Route::post('/recalls/{recall}/activate', [RecallController::class, 'activate'])->name('recalls.activate')->middleware('permission:recall.approve');
+    Route::post('/recalls/{recall}/contain', [RecallController::class, 'contain'])->name('recalls.contain')->middleware('permission:recall.approve');
+    Route::post('/recalls/{recall}/close', [RecallController::class, 'close'])->name('recalls.close')->middleware('permission:recall.approve');
+});
+
+// TMS
+Route::middleware('permission:tms.view')->group(function () {
+    Route::get('/tms/routes', [TmsController::class, 'routes'])->name('tms.routes');
+    Route::post('/tms/routes', [TmsController::class, 'storeRoute'])->name('tms.routes.store');
+    Route::get('/tms/routes/{route}', [TmsController::class, 'routeShow'])->name('tms.routes.show');
+    Route::post('/tms/routes/{route}/stops', [TmsController::class, 'storeStop'])->name('tms.stops.store');
+    Route::delete('/tms/stops/{stop}', [TmsController::class, 'destroyStop'])->name('tms.stops.destroy');
+    Route::post('/tms/routes/{route}/apply', [TmsController::class, 'applyRoute'])->name('tms.routes.apply');
+    Route::get('/tms/tower', [TmsController::class, 'controlTower'])->name('tms.tower');
+});
+
+// School portal
+Route::middleware('permission:portal.view')->group(function () {
+    Route::get('/portal', [PortalController::class, 'index'])->name('portal.index');
+    Route::get('/portal/{delivery}', [PortalController::class, 'show'])->name('portal.show');
+    Route::post('/portal/{delivery}/confirm', [PortalController::class, 'confirm'])->name('portal.confirm');
+    Route::get('/portal-complaints', [PortalController::class, 'complaints'])->name('portal.complaints');
+});
+
+// Analytics & exports
+Route::middleware('permission:report.view')->group(function () {
+    Route::get('/analytics', [AnalyticsController::class, 'executive'])->name('analytics.executive');
+    Route::get('/analytics/export/{dataset}', [AnalyticsController::class, 'export'])->name('analytics.export');
+    Route::get('/capacity', [CapacityController::class, 'index'])->name('capacity.index');
+});
+
+// Webhooks & approvals
+Route::middleware('permission:webhook.view')->group(function () {
+    Route::get('/webhooks', [WebhookController::class, 'index'])->name('webhooks.index');
+    Route::post('/webhooks', [WebhookController::class, 'store'])->name('webhooks.store');
+    Route::post('/webhooks/{webhook}/toggle', [WebhookController::class, 'toggle'])->name('webhooks.toggle');
+    Route::delete('/webhooks/{webhook}', [WebhookController::class, 'destroy'])->name('webhooks.destroy');
+    Route::post('/webhooks/{webhook}/rotate', [WebhookController::class, 'rotateSecret'])->name('webhooks.rotate');
+    Route::post('/webhook-deliveries/{delivery}/retry', [WebhookController::class, 'retry'])->name('webhooks.retry');
+});
+Route::middleware('permission:approval.view')->group(function () {
+    Route::get('/approvals', [ApprovalController::class, 'inbox'])->name('approvals.inbox');
+});
+
+// Master catalog
+Route::middleware('permission:catalog.view')->group(function () {
+    Route::get('/catalog/allergens', [MasterCatalogController::class, 'allergens'])->name('catalog.allergens');
+    Route::post('/catalog/allergens', [MasterCatalogController::class, 'storeAllergen'])->name('catalog.allergens.store');
+    Route::delete('/catalog/allergens/{allergen}', [MasterCatalogController::class, 'destroyAllergen'])->name('catalog.allergens.destroy');
+    Route::get('/catalog/meal-groups', [MasterCatalogController::class, 'mealGroups'])->name('catalog.meal-groups');
+    Route::post('/catalog/meal-groups', [MasterCatalogController::class, 'storeMealGroup'])->name('catalog.meal-groups.store');
+    Route::delete('/catalog/meal-groups/{group}', [MasterCatalogController::class, 'destroyMealGroup'])->name('catalog.meal-groups.destroy');
+    Route::get('/catalog/vehicles', [MasterCatalogController::class, 'vehicles'])->name('catalog.vehicles');
+    Route::post('/catalog/vehicles', [MasterCatalogController::class, 'storeVehicle'])->name('catalog.vehicles.store');
+    Route::delete('/catalog/vehicles/{vehicle}', [MasterCatalogController::class, 'destroyVehicle'])->name('catalog.vehicles.destroy');
+    Route::get('/catalog/work-centers', [MasterCatalogController::class, 'workCenters'])->name('catalog.work-centers');
+    Route::post('/catalog/work-centers', [MasterCatalogController::class, 'storeWorkCenter'])->name('catalog.work-centers.store');
+    Route::delete('/catalog/work-centers/{center}', [MasterCatalogController::class, 'destroyWorkCenter'])->name('catalog.work-centers.destroy');
 });

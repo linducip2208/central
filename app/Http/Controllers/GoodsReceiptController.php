@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Core\Services\NotificationService;
+use App\Events\GoodsReceived;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\GoodsReceipt;
@@ -58,6 +59,8 @@ class GoodsReceiptController extends Controller
         ]);
 
         $po = PurchaseOrder::with('items')->findOrFail($data['purchase_order_id']);
+        $this->ensureOrgAccess($po);
+        $this->ensureWarehouse((int) $data['warehouse_id']);
         abort_unless(in_array($po->status, ['APPROVED', 'PARTIAL']), 422, 'PO belum disetujui.');
 
         try {
@@ -122,6 +125,7 @@ class GoodsReceiptController extends Controller
         }
 
         $this->notifyLowStock($gr);
+        event(new GoodsReceived($gr));
 
         return redirect()->route('goods-receipts.show', $gr)->with('success', 'Penerimaan '.$gr->number.' diposting ke stok.');
     }

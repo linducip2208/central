@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Ingredient;
 use App\Models\InventoryMovement;
@@ -13,7 +14,7 @@ use Illuminate\Http\Request;
 
 class InventoryController extends Controller
 {
-    use FiltersRequests;
+    use AuthorizesOrgAccess, FiltersRequests;
 
     public function index(Request $request)
     {
@@ -62,6 +63,7 @@ class InventoryController extends Controller
 
     public function adjust(Request $request, InventoryService $inventory)
     {
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'ingredient_id' => 'required|exists:ingredients,id',
@@ -93,6 +95,8 @@ class InventoryController extends Controller
 
     public function transfer(Request $request, InventoryService $inventory)
     {
+        $this->ensureWarehouse((int) $request->get('from_warehouse_id'));
+        $this->ensureWarehouse((int) $request->get('to_warehouse_id'));
         $data = $request->validate([
             'from_warehouse_id' => 'required|exists:warehouses,id|different:to_warehouse_id',
             'to_warehouse_id' => 'required|exists:warehouses,id',
@@ -129,6 +133,7 @@ class InventoryController extends Controller
 
     public function reserve(Request $request, InventoryService $inventory)
     {
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'item_type' => 'required|in:ingredient,product',
@@ -146,6 +151,7 @@ class InventoryController extends Controller
 
     public function release(Request $request, InventoryService $inventory)
     {
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'item_type' => 'required|in:ingredient,product',

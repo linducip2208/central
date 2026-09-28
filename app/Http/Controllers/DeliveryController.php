@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Core\Services\NotificationService;
+use App\Events\DeliveryCompleted;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Delivery;
@@ -38,6 +39,7 @@ class DeliveryController extends Controller
     public function deliver(Request $request, Delivery $delivery, InventoryService $inventory)
     {
         $this->ensureOrgAccess($delivery);
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         abort_unless(in_array($delivery->status, ['PLANNED', 'IN_TRANSIT']), 422);
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
@@ -96,6 +98,7 @@ class DeliveryController extends Controller
             return back()->with('error', 'Gagal menyimpan serah terima: '.$e->getMessage());
         }
 
+        event(new DeliveryCompleted($delivery->fresh()));
         $admins = User::where('organization_id', $delivery->organization_id)
             ->whereHas('roles', fn ($q) => $q->whereIn('name', ['super-admin', 'admin']))
             ->get();
@@ -121,7 +124,7 @@ class DeliveryController extends Controller
     public function track(Request $request, Delivery $delivery)
     {
         $this->ensureOrgAccess($delivery);
-        $data = $request->validate(['status' => 'required|string|max:30', 'notes' => 'nullable|string', 'latitude' => 'nullable|numeric', 'longitude' => 'nullable|numeric']);
+        $data = $request->validate(['status' => 'required|string|max:30', 'notes' => 'nullable|string', 'latitude' => 'nullable|numeric|between:-90,90', 'longitude' => 'nullable|numeric|between:-180,180']);
         $delivery->trackings()->create($data + ['created_by' => $request->user()->id]);
 
         return back()->with('success', 'Tracking ditambahkan.');

@@ -12,6 +12,10 @@
 <dl class="row small">
 <dt class="col-5">Harga standar</dt><dd class="col-7">{{ mbg_currency($ingredient->standard_price) }}</dd>
 <dt class="col-5">Min / Max stok</dt><dd class="col-7">{{ number_format($ingredient->min_stock, 2) }} / {{ number_format($ingredient->max_stock, 2) }}</dd>
+<dt class="col-5">ROP / Safety</dt><dd class="col-7">{{ number_format($ingredient->reorder_point, 2) }} / {{ number_format($ingredient->safety_stock, 2) }}</dd>
+<dt class="col-5">Lead / MOQ</dt><dd class="col-7">{{ $ingredient->lead_time_days }} hari / {{ number_format($ingredient->moq, 2) }}</dd>
+<dt class="col-5">Supplier pref.</dt><dd class="col-7">{{ $ingredient->preferredSupplier->name ?? 'otomatis termurah' }}</dd>
+<dt class="col-5">Alergen</dt><dd class="col-7">@forelse($ingredient->allergens as $a)<span class="badge bg-red-lt me-1">{{ $a->name }}</span>@empty — @endforelse</dd>
 <dt class="col-5">Daya simpan</dt><dd class="col-7">{{ $ingredient->shelf_life_days }} hari</dd>
 <dt class="col-5">Total stok</dt><dd class="col-7 fw-bold">{{ number_format($stocks->sum('qty'), 2) }} {{ $ingredient->unit->symbol ?? '' }}</dd>
 </dl>

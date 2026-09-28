@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\CentralKitchen;
+use App\Models\Ingredient;
 use App\Models\Packaging;
 use App\Models\ProductionOrder;
 use App\Models\Warehouse;
+use App\Services\InventoryService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 
@@ -27,7 +29,8 @@ class PackagingController extends Controller
     public function create(Request $request)
     {
         $orders = ProductionOrder::where('organization_id', $request->user()->organization_id)->whereIn('status', ['PARTIAL', 'COMPLETED'])->with('product')->latest()->take(30)->get();
-        $warehouses = Warehouse::when($request->user()->central_kitchen_id, fn ($q) => $q->where('central_kitchen_id', $request->user()->central_kitchen_id))->get();
+        $warehouses = Warehouse::whereHas('centralKitchen', fn ($q) => $q->where('organization_id', $request->user()->organization_id))
+            ->when($request->user()->central_kitchen_id, fn ($q) => $q->where('central_kitchen_id', $request->user()->central_kitchen_id))->get();
 
         return view('packagings.form', ['pkg' => new Packaging, 'orders' => $orders, 'warehouses' => $warehouses]);
     }
@@ -42,6 +45,12 @@ class PackagingController extends Controller
             'notes' => 'nullable|string',
         ]);
         $order = ! empty($data['production_order_id']) ? ProductionOrder::find($data['production_order_id']) : null;
+        if ($order) {
+            $this->ensureOrgAccess($order);
+        }
+        if (! empty($data['warehouse_id'])) {
+            $this->ensureWarehouse((int) $data['warehouse_id']);
+        }
         $pkg = Packaging::create([
             'organization_id' => $request->user()->organization_id,
             'central_kitchen_id' => $order?->central_kitchen_id ?? $request->user()->central_kitchen_id ?? CentralKitchen::first()->id,
@@ -65,9 +74,45 @@ class PackagingController extends Controller
     public function show(Packaging $pkg)
     {
         $this->ensureOrgAccess($pkg);
-        $pkg->load(['items.product', 'productionOrder']);
+        $pkg->load(['items.product', 'productionOrder', 'materialUsages.ingredient.unit', 'materialUsages.batch']);
+        $materials = Ingredient::where('organization_id', $pkg->organization_id)->where('category', 'PACKAGING')->active()->with('unit')->get();
 
-        return view('packagings.show', compact('pkg'));
+        return view('packagings.show', compact('pkg', 'materials'));
+    }
+
+    /** Catat pemakaian material kemasan (keluar stok via ledger). */
+    public function useMaterial(Request $request, Packaging $pkg, InventoryService $inventory)
+    {
+        $this->ensureOrgAccess($pkg);
+        $data = $request->validate([
+            'ingredient_id' => 'required|exists:ingredients,id',
+            'qty' => 'required|numeric|min:0.001',
+        ]);
+        $ing = Ingredient::findOrFail($data['ingredient_id']);
+        $this->ensureOrgAccess($ing);
+        abort_unless($ing->category === 'PACKAGING', 422, 'Hanya bahan kategori PACKAGING.');
+        abort_unless($pkg->warehouse_id, 422, 'Packaging belum punya gudang — isi saat pembuatan.');
+
+        try {
+            $allocs = $inventory->consume($pkg->warehouse_id, 'ingredient', $ing->id, (float) $data['qty'], [
+                'organization_id' => $pkg->organization_id,
+                'movement_type' => 'PRODUCTION_CONSUMPTION',
+                'unit_id' => $ing->unit_id,
+                'reference_type' => Packaging::class,
+                'reference_id' => $pkg->id,
+                'reference_no' => $pkg->number,
+                'notes' => 'Pemakaian material kemasan',
+            ]);
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        $pkg->materialUsages()->create([
+            'ingredient_id' => $ing->id,
+            'batch_id' => $allocs[0]['batch_id'] ?? null,
+            'qty_used' => $data['qty'],
+        ]);
+
+        return back()->with('success', 'Pemakaian material tercatat.');
     }
 
     public function complete(Request $request, Packaging $pkg)

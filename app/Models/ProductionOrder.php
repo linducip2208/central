@@ -10,7 +10,7 @@ class ProductionOrder extends Model
 {
     use Auditable, SoftDeletes;
 
-    protected $fillable = ['organization_id', 'central_kitchen_id', 'kitchen_unit_id', 'production_plan_id', 'menu_id', 'product_id', 'recipe_id', 'number', 'production_date', 'planned_qty', 'produced_qty', 'rejected_qty', 'unit_id', 'status', 'started_at', 'completed_at', 'notes', 'created_by'];
+    protected $fillable = ['organization_id', 'central_kitchen_id', 'kitchen_unit_id', 'work_center_id', 'production_plan_id', 'menu_id', 'product_id', 'recipe_id', 'number', 'production_date', 'planned_qty', 'produced_qty', 'rejected_qty', 'unit_id', 'status', 'material_status', 'started_at', 'completed_at', 'notes', 'theoretical_cost', 'created_by'];
 
     protected function casts(): array
     {
@@ -39,6 +39,16 @@ class ProductionOrder extends Model
     public function kitchenUnit()
     {
         return $this->belongsTo(KitchenUnit::class);
+    }
+
+    public function workCenter()
+    {
+        return $this->belongsTo(WorkCenter::class);
+    }
+
+    public function operators()
+    {
+        return $this->hasMany(ProductionOrderOperator::class);
     }
 
     public function unit()

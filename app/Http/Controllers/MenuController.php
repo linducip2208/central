@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Core\Services\ApprovalService;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\CentralKitchen;
 use App\Models\Menu;
+use App\Models\MenuCycle;
 use App\Models\Product;
+use App\Services\NumberService;
 use Illuminate\Http\Request;
 
 class MenuController extends Controller
@@ -95,5 +98,59 @@ class MenuController extends Controller
         $menu->delete();
 
         return redirect()->route('menus.index')->with('success', 'Menu dihapus.');
+    }
+
+    public function cycles(Request $request)
+    {
+        $cycles = MenuCycle::where('organization_id', $request->user()->organization_id)->with('days.menu')->get();
+
+        return view('menus.cycles', compact('cycles'));
+    }
+
+    public function storeCycle(Request $request, NumberService $numbers)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'cycle_days' => 'required|integer|min:1|max:31',
+            'start_date' => 'required|date',
+        ]);
+        MenuCycle::create($data + [
+            'organization_id' => $request->user()->organization_id,
+            'code' => $numbers->next('MCY'), 'status' => 'DRAFT',
+        ]);
+
+        return back()->with('success', 'Siklus menu dibuat. Tetapkan menu per hari.');
+    }
+
+    public function cycleShow(MenuCycle $cycle)
+    {
+        $this->ensureOrgAccess($cycle);
+        $cycle->load(['days.menu']);
+        $menus = Menu::where('organization_id', $cycle->organization_id)->where('status', 'APPROVED')->latest()->take(60)->get();
+
+        return view('menus.cycle-show', compact('cycle', 'menus'));
+    }
+
+    public function storeCycleDay(Request $request, MenuCycle $cycle)
+    {
+        $this->ensureOrgAccess($cycle);
+        $this->ensureOrgAccess(Menu::findOrFail($request->get('menu_id')));
+        $data = $request->validate([
+            'day_no' => 'required|integer|min:1|max:'.$cycle->cycle_days,
+            'menu_id' => 'required|exists:menus,id',
+        ]);
+        $cycle->days()->updateOrCreate(['day_no' => $data['day_no']], $data);
+
+        return back()->with('success', 'Menu hari ke-'.$data['day_no'].' ditetapkan.');
+    }
+
+    public function approveCycle(MenuCycle $cycle)
+    {
+        $this->ensureOrgAccess($cycle);
+        abort_unless($cycle->days()->count() >= $cycle->cycle_days, 422, 'Lengkapi semua hari dalam siklus.');
+        $cycle->update(['status' => 'APPROVED']);
+        app(ApprovalService::class)->decide($cycle, 'APPROVE');
+
+        return back()->with('success', 'Siklus menu disetujui.');
     }
 }

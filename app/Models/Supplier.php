@@ -22,6 +22,26 @@ class Supplier extends Model
         return $this->hasMany(PurchaseOrder::class);
     }
 
+    public function contacts()
+    {
+        return $this->hasMany(SupplierContact::class);
+    }
+
+    public function addresses()
+    {
+        return $this->hasMany(SupplierAddress::class);
+    }
+
+    public function contracts()
+    {
+        return $this->hasMany(SupplierContract::class);
+    }
+
+    public function priceLists()
+    {
+        return $this->hasMany(SupplierPriceList::class);
+    }
+
     public function scopeActive($q)
     {
         return $q->where('status', 'ACTIVE');

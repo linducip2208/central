@@ -88,15 +88,21 @@ class AuthTest extends TestCase
 
         $pages = [
             '/dashboard', '/suppliers', '/schools', '/recipients', '/ingredients', '/products',
-            '/units', '/menus', '/recipes', '/demands', '/purchase-requests', '/purchase-orders',
+            '/units', '/menus', '/menu-cycles', '/recipes', '/demands', '/demand-plans', '/mrp',
+            '/boms', '/purchase-requests', '/rfqs', '/purchase-orders', '/invoices',
             '/goods-receipts', '/inventory', '/inventory/movements', '/inventory/adjust',
-            '/inventory/transfer', '/inventory/reserve', '/batches',
-            '/stock-opnames', '/production-plans', '/production-orders', '/quality-controls',
-            '/packagings', '/distributions', '/deliveries', '/wastes', '/costings',
+            '/inventory/transfer', '/inventory/reserve', '/batches', '/wms/locations', '/wms/scan',
+            '/trace', '/stock-opnames', '/production-plans', '/production-orders', '/capacity',
+            '/quality-controls', '/inspections', '/inspections/templates', '/ncrs', '/temp-logs',
+            '/packagings', '/recalls', '/distributions', '/deliveries', '/tms/routes', '/tms/tower',
+            '/portal', '/portal-complaints', '/wastes', '/costings', '/costings/history',
             '/reports', '/reports/stock', '/reports/production', '/reports/delivery',
-            '/reports/financial', '/reports/expiry', '/central-kitchens', '/kitchen-units',
-            '/warehouses', '/organizations', '/users', '/roles', '/audit-logs', '/settings',
-            '/notifications',
+            '/reports/financial', '/reports/expiry', '/reports/intelligence', '/reports/waste',
+            '/reports/supplier', '/reports/recall', '/reports/nutrition',
+            '/analytics', '/central-kitchens', '/kitchen-units',
+            '/warehouses', '/catalog/allergens', '/catalog/meal-groups', '/catalog/vehicles',
+            '/catalog/work-centers', '/organizations', '/users', '/roles', '/audit-logs',
+            '/approvals', '/webhooks', '/settings', '/notifications',
         ];
         foreach ($pages as $page) {
             $resp = $this->actingAs($admin)->get($page);

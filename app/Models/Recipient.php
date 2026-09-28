@@ -21,4 +21,14 @@ class Recipient extends Model
     {
         return $this->belongsTo(School::class);
     }
+
+    public function allergens()
+    {
+        return $this->belongsToMany(Allergen::class, 'allergen_recipient')->withPivot('severity')->withTimestamps();
+    }
+
+    public function mealGroups()
+    {
+        return $this->belongsToMany(MealGroup::class, 'meal_group_recipient')->withTimestamps();
+    }
 }

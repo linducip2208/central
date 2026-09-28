@@ -12,7 +12,7 @@ class Ingredient extends Model
 
     public const ITEM_TYPE = 'ingredient';
 
-    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'category', 'unit_id', 'standard_price', 'min_stock', 'max_stock', 'shelf_life_days', 'requires_batch', 'is_active'];
+    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'category', 'unit_id', 'standard_price', 'min_stock', 'reorder_point', 'safety_stock', 'lead_time_days', 'moq', 'preferred_supplier_id', 'max_stock', 'shelf_life_days', 'requires_batch', 'is_active'];
 
     protected function casts(): array
     {
@@ -38,6 +38,21 @@ class Ingredient extends Model
     public function recipeItems()
     {
         return $this->hasMany(RecipeItem::class);
+    }
+
+    public function allergens()
+    {
+        return $this->belongsToMany(Allergen::class, 'allergen_ingredient')->withTimestamps();
+    }
+
+    public function preferredSupplier()
+    {
+        return $this->belongsTo(Supplier::class, 'preferred_supplier_id');
+    }
+
+    public function priceLists()
+    {
+        return $this->hasMany(SupplierPriceList::class);
     }
 
     public function scopeActive($q)

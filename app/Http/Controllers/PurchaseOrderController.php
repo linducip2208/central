@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestItem;
 use App\Models\Supplier;
+use App\Services\ApprovalService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -51,8 +52,17 @@ class PurchaseOrderController extends Controller
             'items.*.pr_item_id' => 'nullable|exists:purchase_request_items,id',
         ]);
 
-        $po = DB::transaction(function () use ($request, $data, $numbers) {
-            $pr = ! empty($data['purchase_request_id']) ? PurchaseRequest::find($data['purchase_request_id']) : null;
+        $this->ensureOrgAccess(Supplier::findOrFail($data['supplier_id']));
+        $pr = null;
+        if (! empty($data['purchase_request_id'])) {
+            $pr = PurchaseRequest::findOrFail($data['purchase_request_id']);
+            $this->ensureOrgAccess($pr);
+        }
+        foreach ($data['items'] as $it) {
+            $this->ensureOrgAccess(Ingredient::findOrFail($it['ingredient_id']));
+        }
+
+        $po = DB::transaction(function () use ($request, $data, $numbers, $pr) {
             $po = PurchaseOrder::create([
                 'organization_id' => $request->user()->organization_id,
                 'central_kitchen_id' => $pr?->central_kitchen_id ?? $request->user()->central_kitchen_id ?? CentralKitchen::first()->id,
@@ -112,6 +122,7 @@ class PurchaseOrderController extends Controller
         $this->ensureOrgAccess($po);
         abort_unless($po->status === 'SUBMITTED', 422);
         $po->update(['status' => 'APPROVED', 'approved_by' => request()->user()->id, 'approved_at' => now()]);
+        app(ApprovalService::class)->decide($po, 'APPROVE');
         app(NotificationService::class)->sendPurchaseApproved($po->id);
 
         return back()->with('success', 'PO disetujui. Barang dapat diterima via Goods Receipt.');
@@ -123,6 +134,7 @@ class PurchaseOrderController extends Controller
         $request->validate(['reject_reason' => 'required|string']);
         abort_unless(in_array($po->status, ['DRAFT', 'SUBMITTED']), 422);
         $po->update(['status' => 'REJECTED', 'reject_reason' => $request->reject_reason]);
+        app(ApprovalService::class)->decide($po, 'REJECT', $request->reject_reason);
 
         return back()->with('success', 'PO ditolak.');
     }

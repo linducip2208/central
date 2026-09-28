@@ -1,0 +1,15 @@
+{
+  "name": "MBG Central Kitchen",
+  "short_name": "MBG Kitchen",
+  "description": "Operasional dapur Makan Bergizi Gratis",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#2fb344",
+  "lang": "id",
+  "icons": [
+    { "src": "https://cdn.jsdelivr.net/npm/@tabler/icons@3.28.1/icons/chef-hat.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

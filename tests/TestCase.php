@@ -29,7 +29,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function seedRoles(): void
     {
-        foreach (['super-admin', 'admin', 'warehouse', 'kitchen', 'procurement', 'driver', 'viewer'] as $r) {
+        foreach (['super-admin', 'admin', 'warehouse', 'kitchen', 'procurement', 'driver', 'school', 'viewer'] as $r) {
             Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
         }
         $perms = [
@@ -39,8 +39,13 @@ abstract class TestCase extends BaseTestCase
             'production.view', 'production.create', 'qc.view', 'qc.create',
             'distribution.view', 'distribution.create', 'delivery.view', 'delivery.update',
             'waste.view', 'waste.create', 'costing.view', 'product.view',
-            'menu.view', 'supplier.view', 'school.view', 'org.view',
+            'menu.view', 'supplier.view', 'school.view', 'org.view', 'org.create',
             'user.view', 'role.view', 'audit.view', 'setting.view', 'report.view',
+            'bom.view', 'bom.create', 'bom.approve',
+            'mrp.view', 'mrp.run', 'rfq.view', 'rfq.create',
+            'invoice.view', 'invoice.verify', 'wms.view', 'qms.view',
+            'recall.view', 'recall.create', 'recall.approve',
+            'tms.view', 'portal.view', 'webhook.view', 'approval.view', 'catalog.view',
         ];
         foreach ($perms as $p) {
             Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);
@@ -50,6 +55,8 @@ abstract class TestCase extends BaseTestCase
             'demand.view', 'pr.view', 'po.view', 'gr.view', 'inventory.view',
             'production.view', 'distribution.view', 'delivery.view', 'report.view', 'costing.view',
         ]);
+        Role::findByName('school')->syncPermissions(['portal.view', 'delivery.view']);
+        Role::findByName('driver')->syncPermissions(['delivery.view', 'delivery.update', 'distribution.view', 'tms.view']);
     }
 
     protected function makeOrg(string $code = 'ORG1'): Organization

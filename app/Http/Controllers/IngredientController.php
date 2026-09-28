@@ -34,21 +34,33 @@ class IngredientController extends Controller
         return view('ingredients.form', ['ingredient' => new Ingredient, 'units' => $units]);
     }
 
-    public function store(Request $request)
+    protected function rules(): array
     {
-        $data = $request->validate([
+        return [
             'name' => 'required|string|max:255',
-            'category' => 'required|in:STAPLE,PROTEIN,VEGETABLE,FRUIT,SPICE,OIL,OTHER',
+            'category' => 'required|in:STAPLE,PROTEIN,VEGETABLE,FRUIT,SPICE,OIL,OTHER,PACKAGING',
             'unit_id' => 'required|exists:units,id',
             'standard_price' => 'required|numeric|min:0',
             'min_stock' => 'nullable|numeric|min:0', 'max_stock' => 'nullable|numeric|min:0',
             'shelf_life_days' => 'nullable|integer|min:0',
+            'reorder_point' => 'nullable|numeric|min:0', 'safety_stock' => 'nullable|numeric|min:0',
+            'lead_time_days' => 'nullable|integer|min:0', 'moq' => 'nullable|numeric|min:0',
+            'preferred_supplier_id' => 'nullable|exists:suppliers,id',
+            'allergens' => 'nullable|array', 'allergens.*' => 'exists:allergens,id',
             'is_active' => 'boolean',
-        ]);
+        ];
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate($this->rules());
+        $allergens = $data['allergens'] ?? [];
+        unset($data['allergens']);
         $data['organization_id'] = $request->user()->organization_id;
         $data['code'] = 'ING-'.now()->format('ymd').'-'.strtoupper(substr(uniqid(), -4));
         $data['is_active'] = $request->boolean('is_active', true);
         $ingredient = Ingredient::create($data);
+        $ingredient->allergens()->sync($allergens);
 
         return redirect()->route('ingredients.show', $ingredient)->with('success', 'Bahan baku ditambahkan.');
     }
@@ -56,6 +68,7 @@ class IngredientController extends Controller
     public function show(Request $request, Ingredient $ingredient)
     {
         $this->ensureOrgAccess($ingredient);
+        $ingredient->load(['allergens', 'preferredSupplier', 'unit']);
         $stocks = InventoryStock::with(['warehouse', 'batch'])
             ->where('item_type', 'ingredient')->where('item_id', $ingredient->id)
             ->when($request->user()->central_kitchen_id, fn ($q) => $q->whereHas('warehouse', fn ($w) => $w->where('central_kitchen_id', $request->user()->central_kitchen_id)))
@@ -76,16 +89,12 @@ class IngredientController extends Controller
     public function update(Request $request, Ingredient $ingredient)
     {
         $this->ensureOrgAccess($ingredient);
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'category' => 'required|in:STAPLE,PROTEIN,VEGETABLE,FRUIT,SPICE,OIL,OTHER',
-            'unit_id' => 'required|exists:units,id',
-            'standard_price' => 'required|numeric|min:0',
-            'min_stock' => 'nullable|numeric|min:0', 'max_stock' => 'nullable|numeric|min:0',
-            'shelf_life_days' => 'nullable|integer|min:0',
-        ]);
+        $data = $request->validate($this->rules());
+        $allergens = $data['allergens'] ?? [];
+        unset($data['allergens']);
         $data['is_active'] = $request->boolean('is_active', true);
         $ingredient->update($data);
+        $ingredient->allergens()->sync($allergens);
 
         return redirect()->route('ingredients.show', $ingredient)->with('success', 'Bahan baku diperbarui.');
     }

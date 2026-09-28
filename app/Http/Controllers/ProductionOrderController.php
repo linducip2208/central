@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Core\Services\NotificationService;
+use App\Events\ProductionCompleted;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
+use App\Models\Downtime;
+use App\Models\InventoryStock;
 use App\Models\ProductionOrder;
+use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\WorkCenter;
 use App\Services\CostingService;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
@@ -25,13 +30,82 @@ class ProductionOrderController extends Controller
         return view('production-orders.index', compact('orders'));
     }
 
-    public function show(ProductionOrder $order)
+    public function show(ProductionOrder $order, InventoryService $inventory)
     {
         $this->ensureOrgAccess($order);
-        $order->load(['items.ingredient.unit', 'product.unit', 'recipe', 'kitchenUnit']);
+        $order->load(['items.ingredient.unit', 'product.unit', 'recipe', 'kitchenUnit', 'workCenter', 'operators.user']);
         $warehouses = Warehouse::where('central_kitchen_id', $order->central_kitchen_id)->get();
+        $workCenters = WorkCenter::where('central_kitchen_id', $order->central_kitchen_id)->active()->get();
+        $staff = User::where('organization_id', $order->organization_id)->active()->orderBy('name')->take(100)->get();
+        // Cek ketersediaan teoritis per bahan (untuk material check).
+        $availability = [];
+        foreach ($order->items as $it) {
+            $need = max(0, (float) $it->qty_required - (float) $it->qty_consumed);
+            $avail = 0;
+            foreach ($warehouses as $w) {
+                $avail += $inventory->availableOf($w->id, 'ingredient', $it->ingredient_id);
+            }
+            $availability[$it->id] = ['need' => $need, 'available' => $avail, 'ok' => $avail >= $need - 1e-9];
+        }
+        $downtimes = Downtime::where('production_order_id', $order->id)->latest()->take(10)->get();
 
-        return view('production-orders.show', compact('order', 'warehouses'));
+        return view('production-orders.show', compact('order', 'warehouses', 'workCenters', 'staff', 'availability', 'downtimes'));
+    }
+
+    public function assignWorkCenter(Request $request, ProductionOrder $order)
+    {
+        $this->ensureOrgAccess($order);
+        $request->validate(['work_center_id' => 'nullable|exists:work_centers,id']);
+        $order->update(['work_center_id' => $request->work_center_id]);
+
+        return back()->with('success', 'Work center diperbarui.');
+    }
+
+    public function assignOperator(Request $request, ProductionOrder $order)
+    {
+        $this->ensureOrgAccess($order);
+        $data = $request->validate(['user_id' => 'required|exists:users,id', 'role' => 'required|in:OPERATOR,SUPERVISOR,QC']);
+        $order->operators()->updateOrCreate(['user_id' => $data['user_id']], $data + ['assigned_at' => now()]);
+
+        return back()->with('success', 'Operator ditugaskan.');
+    }
+
+    public function materialCheck(ProductionOrder $order, InventoryService $inventory)
+    {
+        $this->ensureOrgAccess($order);
+        abort_unless(in_array($order->status, ['RELEASED', 'PLANNED']), 422);
+        $warehouses = Warehouse::where('central_kitchen_id', $order->central_kitchen_id)->pluck('id');
+        $short = [];
+        foreach ($order->items as $it) {
+            $need = max(0, (float) $it->qty_required - (float) $it->qty_consumed);
+            $avail = InventoryStock::whereIn('warehouse_id', $warehouses)->where('item_type', 'ingredient')->where('item_id', $it->ingredient_id)->selectRaw('SUM(qty - reserved_qty) as a')->value('a') ?? 0;
+            if ($avail < $need - 1e-9) {
+                $short[] = ($it->ingredient->name ?? '#'.$it->ingredient_id).' kurang '.number_format($need - $avail, 2);
+            }
+        }
+        // Biaya teoritis dari kebutuhan × harga standar.
+        $theoretical = 0;
+        foreach ($order->items as $it) {
+            $theoretical += (float) $it->qty_required * (float) ($it->ingredient->standard_price ?? 0);
+        }
+        $order->update(['material_status' => empty($short) ? 'CHECKED' : 'PENDING', 'theoretical_cost' => $theoretical]);
+
+        return back()->with(empty($short) ? 'success' : 'error', empty($short) ? 'Material check lulus. Biaya teoritis '.mbg_currency($theoretical).'.' : 'Stok kurang: '.implode('; ', $short));
+    }
+
+    public function recordDowntime(Request $request, ProductionOrder $order)
+    {
+        $this->ensureOrgAccess($order);
+        $data = $request->validate([
+            'work_center_id' => 'nullable|exists:work_centers,id',
+            'reason' => 'required|string|max:60',
+            'started_at' => 'required|date',
+            'ended_at' => 'nullable|date|after_or_equal:started_at',
+            'notes' => 'nullable|string',
+        ]);
+        Downtime::create($data + ['organization_id' => $order->organization_id, 'central_kitchen_id' => $order->central_kitchen_id, 'production_order_id' => $order->id]);
+
+        return back()->with('success', 'Downtime dicatat.');
     }
 
     public function release(ProductionOrder $order)
@@ -57,8 +131,8 @@ class ProductionOrderController extends Controller
     /** Konsumsi bahan dari gudang (FEFO, bisa parsial). */
     public function consume(Request $request, ProductionOrder $order, InventoryService $inventory)
     {
-        $this->ensureOrgAccess($order);
         abort_unless(in_array($order->status, ['RELEASED', 'IN_PROGRESS', 'PARTIAL']), 422, 'Order belum dirilis.');
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'items' => 'required|array|min:1',
@@ -94,8 +168,8 @@ class ProductionOrderController extends Controller
     /** Selesaikan produksi: catat output ke stok + costing otomatis. */
     public function complete(Request $request, ProductionOrder $order, InventoryService $inventory, CostingService $costing)
     {
-        $this->ensureOrgAccess($order);
         abort_unless($order->isCompletable(), 422);
+        $this->ensureWarehouse((int) $request->get('warehouse_id'));
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'produced_qty' => 'required|numeric|min:0',
@@ -135,6 +209,7 @@ class ProductionOrderController extends Controller
         } catch (\Throwable $e) {
             return back()->with('error', 'Gagal menyelesaikan produksi: '.$e->getMessage());
         }
+        event(new ProductionCompleted($order->fresh()));
 
         return back()->with('success', 'Hasil produksi masuk stok + costing dihitung.');
     }

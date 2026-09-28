@@ -15,10 +15,11 @@
 <div class="col-lg-7">
 <div class="card"><div class="card-header"><h3 class="card-title">Kebutuhan bahan <span class="ms-2"><x-badge :status="$order->status"/></span></h3></div>
 <div class="table-responsive"><table class="table table-vcenter card-table">
-<thead><tr><th>Bahan</th><th class="text-end">Butuh</th><th class="text-end">Terpakai</th><th class="text-end">Sisa</th></tr></thead>
+<thead><tr><th>Bahan</th><th class="text-end">Butuh (teoritis)</th><th class="text-end">Terpakai (aktual)</th><th class="text-end">Tersedia gudang</th><th class="text-end">Variansi</th></tr></thead>
 <tbody>
 @foreach($order->items as $it)
-<tr><td>{{ $it->ingredient->name ?? '-' }}</td><td class="text-end">{{ number_format($it->qty_required, 2) }}</td><td class="text-end">{{ number_format($it->qty_consumed, 2) }}</td><td class="text-end fw-bold">{{ number_format($it->qty_required - $it->qty_consumed, 2) }}</td></tr>
+@php $av = $availability[$it->id] ?? ['need' => 0, 'available' => 0, 'ok' => true]; $var = (float) $it->qty_consumed - (float) $it->qty_required; @endphp
+<tr><td>{{ $it->ingredient->name ?? '-' }}</td><td class="text-end">{{ number_format($it->qty_required, 2) }}</td><td class="text-end">{{ number_format($it->qty_consumed, 2) }}</td><td class="text-end @if(!$av['ok']) text-red fw-bold @endif">{{ number_format($av['available'], 2) }}</td><td class="text-end @if(abs($var) > 0.001) text-yellow @endif">{{ $var > 0 ? '+' : '' }}{{ number_format($var, 2) }}</td></tr>
 @endforeach
 </tbody></table></div></div>
 
@@ -62,10 +63,46 @@
 <dl class="row small mb-0">
 <dt class="col-5">Resep</dt><dd class="col-7">{{ $order->recipe->name ?? '—' }}</dd>
 <dt class="col-5">Unit dapur</dt><dd class="col-7">{{ $order->kitchenUnit->name ?? '—' }}</dd>
+<dt class="col-5">Work center</dt><dd class="col-7">{{ $order->workCenter->name ?? '—' }}</dd>
+<dt class="col-5">Material</dt><dd class="col-7"><x-badge :status="$order->material_status"/></dd>
+<dt class="col-5">Biaya teoritis</dt><dd class="col-7">{{ mbg_currency($order->theoretical_cost) }}</dd>
 <dt class="col-5">Mulai</dt><dd class="col-7">{{ $order->started_at ?? '—' }}</dd>
 <dt class="col-5">Selesai</dt><dd class="col-7">{{ $order->completed_at ?? '—' }}</dd>
 <dt class="col-5">Catatan</dt><dd class="col-7">{{ $order->notes ?? '—' }}</dd>
 </dl>
+</div></div>
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Setup produksi</h3></div>
+<div class="card-body">
+<form method="POST" action="{{ route('production-orders.work-center', $order) }}">@csrf
+<label class="form-label">Work center</label>
+<div class="input-group"><select name="work_center_id" class="form-select"><option value="">—</option>@foreach($workCenters as $w)<option value="{{ $w->id }}" @selected($order->work_center_id == $w->id)>{{ $w->name }} ({{ number_format($w->capacity_per_hour) }}/jam)</option>@endforeach</select><button class="btn btn-white" type="submit">Simpan</button></div>
+</form>
+<form method="POST" action="{{ route('production-orders.operator', $order) }}" class="mt-2">@csrf
+<label class="form-label">Tugaskan operator</label>
+<div class="input-group"><select name="user_id" class="form-select">@foreach($staff as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach</select><select name="role" class="form-select" style="max-width:140px"><option>OPERATOR</option><option>SUPERVISOR</option><option>QC</option></select><button class="btn btn-white" type="submit">+</button></div>
+</form>
+<ul class="small mt-2 mb-0">
+@foreach($order->operators as $op)
+<li>{{ $op->user->name ?? '' }} — {{ $op->role }}</li>
+@endforeach
+</ul>
+<form method="POST" action="{{ route('production-orders.material-check', $order) }}" class="mt-2">@csrf<button class="btn btn-white w-100" type="submit">Material check (stok vs kebutuhan)</button></form>
+</div></div>
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Downtime</h3></div>
+<div class="card-body">
+<form method="POST" action="{{ route('production-orders.downtime', $order) }}">@csrf
+<div class="row g-1">
+<div class="col-12"><input name="reason" class="form-control form-control-sm" placeholder="Alasan *" required/></div>
+<div class="col-6"><input name="started_at" type="datetime-local" class="form-control form-control-sm" required/></div>
+<div class="col-6"><input name="ended_at" type="datetime-local" class="form-control form-control-sm"/></div>
+<div class="col-12"><button class="btn btn-white btn-sm w-100" type="submit">Catat downtime</button></div>
+</div>
+</form>
+<ul class="small mt-2 mb-0">
+@foreach($downtimes as $d)
+<li>{{ $d->started_at->format('d M H:i') }} – {{ $d->ended_at?->format('H:i') ?? 'berjalan' }} · {{ $d->reason }} @if($d->durationMinutes()) ({{ $d->durationMinutes() }} mnt) @endif</li>
+@endforeach
+</ul>
 </div></div>
 </div>
 </div>

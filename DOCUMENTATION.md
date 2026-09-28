@@ -12,147 +12,209 @@ Copy-Item .env.example .env
 php artisan key:generate
 # buat database MySQL: mbg_central_kitchen (utf8mb4)
 php artisan migrate --seed
+php artisan storage:link
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Login default: `admin@mbg.id / password123` (super-admin), plus
-`procurement@`, `gudang@`, `dapur@`, `driver@mbg.id` (password sama).
+Login default: `admin@mbg.id / password123` (super-admin); plus
+`procurement@`, `gudang@`, `dapur@`, `driver@`, `sekolah@mbg.id` (password sama).
 
-## 2. Environment (.env)
+## 2. Environment
 
-| Key | Default | Keterangan |
-|---|---|---|
-| `DB_*` | `mbg_central_kitchen` | Koneksi MySQL |
-| `INVENTORY_LOT_METHOD` | `FEFO` | Metode alokasi batch |
-| `INVENTORY_EXPIRY_ALERT_DAYS` | `30` | Ambang peringatan expired |
-| `QC_AUTO_APPROVE` | `false` | QC selalu manual |
-| `FINANCIAL_COSTING_METHOD` | `AVG` | Metode average costing |
-| `CACHE_STORE` / `SESSION_DRIVER` / `QUEUE_CONNECTION` | `file`/`file`/`database` | Driver lokal |
-
-Testing memakai SQLite `:memory:` + driver `array`/`sync` (lihat `phpunit.xml`).
+`DB_*` (default `mbg_central_kitchen`), `INVENTORY_LOT_METHOD=FEFO`,
+`INVENTORY_EXPIRY_ALERT_DAYS=30`, `QC_AUTO_APPROVE=false`,
+`FINANCIAL_COSTING_METHOD=AVG`, `CACHE_STORE/SESSION_DRIVER=file`,
+`QUEUE_CONNECTION=database`. Testing: SQLite `:memory:` + `array`/`sync` (phpunit.xml).
 
 ## 3. Database, migrasi, seeding
 
-- `php artisan migrate` — 13 migrasi: 9 domain (`2026_01_01_00000{1..9}`) + 4 vendor
-  (spatie permission & activitylog).
+- `php artisan migrate` — 19 migrasi: 15 domain (`2026_01_01_00000{1..9}`,
+  `000010` sanctum, `000011` master expansion, `000012` planning,
+  `000013` quality/trace, `000014` alter operasional, `000015` indeks performa)
+  + 4 vendor (spatie permission & activitylog).
 - `php artisan migrate:fresh --seed` — reset + seed penuh.
-- Seeder: `RolesPermissionsSeeder` (7 peran, 37 izin) → `MasterSeeder`
-  (satuan, org, dapur, gudang, supplier, 8 sekolah, 15 bahan, 4 produk, resep, menu/Minggu, 5 user)
-  → `DemoSeeder` (1 hari operasional penuh lewat ledger: demand→PR→6 PO→6 GR→produksi 480 porsi→QC→packaging→distribusi→3 delivery).
-- Konvensi: PK `id`, FK + index + cascade/nullOnDelete eksplisit, `timestamps`,
-  `softDeletes` untuk data bisnis, `decimal(15,3)` qty, `decimal(15,2)` uang,
-  status sebagai `string` + index (kompatibel MySQL & SQLite).
+- Seeder: `RolesPermissionsSeeder` (8 peran, 56 izin) → `MasterSeeder`
+  (satuan, org, dapur, gudang, supplier, 8 sekolah, 15 bahan, 4 produk, resep,
+  menu/minggu, 5 user, 20 penerima) → `DemoSeeder` (1 hari operasional penuh
+  lewat ledger) → `ExpansionSeeder` (alergen, meal group, kendaraan, rute+stop,
+  lokasi WMS, work center, template inspeksi, price list, bahan kemasan,
+  siklus menu, settings pajak/currency, feature flags, user sekolah).
+- Konvensi: PK `id`, FK + index + cascade/nullOnDelete, `timestamps`,
+  `softDeletes` data bisnis, `decimal(15,3)` qty, `decimal(15,2)` uang,
+  status `string` + index (kompatibel MySQL & SQLite).
 
 ## 4. Autentikasi, peran, izin
 
-- Session guard (web) + Sanctum (API). Login dibatasi throttle, akun nonaktif ditolak.
-- Peran: `super-admin`, `admin` (bypass semua ability via `Gate::before`),
-  `procurement`, `warehouse`, `kitchen`, `driver`, `viewer`.
-- Otorisasi 2 lapis: middleware `permission:{slug}` di setiap grup route +
-  `AuthorizesOrgAccess::ensureOrgAccess()` di semua aksi detail (isolasi organisasi;
-  `super-admin` dikecualikan). Terbukti oleh test `cross_organization_access_is_forbidden`.
-- Audit: trait `Auditable` (spatie activitylog, fail-safe) + tabel `audit_logs`
-  via `AuditService`, halaman `/audit-logs`.
+- Session guard (web) + Sanctum (API). Throttle login, akun nonaktif ditolak.
+- Peran: `super-admin`, `admin` (bypass via `Gate::before`), `procurement`,
+  `warehouse`, `kitchen`, `driver`, `school`, `viewer`.
+- Otorisasi 3 lapis: middleware `permission:{slug}` + `ensureOrgAccess()` di
+  semua aksi detail + `ensureKitchen/Warehouse/School()` di semua input ID
+  referensi + 8 Policy terdaftar (`Gate::policy`). `super-admin` dikecualikan.
+- Audit: trait `Auditable` (fail-safe), tabel `audit_logs`, listener login/logout,
+  approval log, halaman `/audit-logs` + `/approvals`.
 
-## 5. Modul
+## 5. Modul (IMPLEMENTED)
 
-Dashboard · Organisasi · Central Kitchen · Unit Dapur · Gudang · Supplier ·
-Sekolah + Penerima (index + filter alergi) · Produk · Bahan · Satuan + Konversi ·
-Menu + Gizi · Resep + Gizi · Demand · PR · PO · GR · Inventory · Mutasi ·
-Batch/Expired · Opname · Transfer Gudang · Reservasi Stok · Rencana Produksi ·
-Production Order · QC · Packaging · Distribusi · Delivery + Tracking + Bukti Foto ·
-Waste · Costing · Laporan (stok/produksi/delivery/keuangan/expired) · Notifikasi ·
-Audit Log · Users · Roles · Settings · API v1 (token, stok, delivery). Total ±165 route.
+Dashboard · Demand + Demand Plans · MRP · BOM · Menu + Siklus + Gizi ·
+Resep (+waktu, effective-date, gizi) · PR · RFQ + Quotation + Award · PO ·
+GR · Invoice + 3-way match · Inventory + Ledger · Batch/Expired · Lokasi WMS +
+Scan Barcode · Traceability · Opname · Transfer · Reservasi · Rencana Produksi ·
+WO/MES (work center, operator, downtime, material check, teoritis vs aktual) ·
+QC klasik + QMS (inspeksi, NCR/CAPA, suhu CCP, karantina) · Recall ·
+Packaging (+material) · Distribusi · Delivery (+POD foto, GPS) · Rute TMS +
+Control Tower · Portal Sekolah · Waste + Analytics · Costing (standar vs aktual,
+riwayat harga) · Laporan (11 jenis) · Analytics eksekutif + CSV · Notifikasi ·
+Webhooks · Users/Roles/Settings/Feature Flags · API v1 (24 endpoint). ±270 route.
 
 ## 6. Alur bisnis inti
 
 ```
-Demand → [generate PR: explosion resep × porsi] → PR (draft→submit→approve)
-→ PO (draft→submit→approve) → GR (parsial allowed, posting stok+batch)
-→ Inventory (FEFO) → Rencana Produksi → WO (plan→release→start→consume→complete)
-→ QC (PASSED/FAILED/CONDITIONAL) → Packaging → Distribusi (delivery/sekolah otomatis)
-→ Delivery (dispatch→deliver/partial/fail + tracking) → Sekolah
-→ Laporan + Costing (material aktual dari ledger)
+DEMAND → MENU → RECIPE/BOM → DEMAND PLAN → MRP → PR → RFQ → QUOTATION → PO
+→ GR (batch) → INVENTORY (FEFO) → PLAN → WO (check→issue→complete) → QC/QMS
+→ PACKAGING → DISTRIBUSI → DELIVERY → SEKOLAH (portal) → COSTING → ANALITIK → AUDIT
 ```
 
-## 7. Inventory workflow & engine (`App\Services\InventoryService`)
+## 7. Inventory engine (`App\Services\InventoryService`)
 
-- **Semua mutasi lewat service**, dalam `DB::transaction` + `lockForUpdate`
-  pada `inventory_stocks`. Tidak ada update qty langsung dari controller.
-- Tipe: `PURCHASE_RECEIPT, STOCK_IN, STOCK_OUT, PRODUCTION_CONSUMPTION,
-  PRODUCTION_OUTPUT, TRANSFER, ADJUSTMENT, STOCK_OPNAME, WASTE, DELIVERY, RETURN`.
-- Setiap mutasi menulis 1 baris **append-only** `inventory_movements`
-  (`stock_before/after`, `unit_cost`, referensi). Konsistensi:
-  `Σ(IN−OUT) = Σ(inventory_stocks)` — dicek test + script konsistensi.
-- **FEFO**: batch `AVAILABLE`, qty>0, belum expired, urut expiry tercepat
-  (NULL terakhir). Batch `BLOCKED`/`EXPIRED` tidak ikut alokasi.
-- **Idempotency**: kombinasi (`movement_type`, `reference_type`, `reference_id`)
-  unik — posting ganda ditolak (`RuntimeException`).
-- Partial: GR parsial (status PO `PARTIAL→COMPLETED`), konsumsi parsial,
-  delivery parsial + retur. Reservasi stok terpisah dari mutasi fisik.
-- Opname: snapshot sistem → hitung fisik → approve → posting selisih
-  sebagai movement `STOCK_OPNAME` per item.
-- Costing: `CostingService::forProductionOrder` memakai `total_cost` aktual
-  dari ledger konsumsi + biaya manual.
+Semua mutasi lewat service, `DB::transaction` + `lockForUpdate`, ledger
+append-only (`stock_before/after`, biaya, referensi). Tipe: 11 movement.
+Konsistensi `Σ(IN−OUT) = Σ(stok)` (test + cek manual). FEFO lewati
+expired/blocked. Idempotency per (tipe, ref). Parsial di GR/produksi/delivery.
+Opname snapshot→hitung→approve→posting. Transfer = consume FEFO + receive batch
+baru. Reservasi mengurangi availability tanpa mutasi fisik.
 
-## 8. Production / delivery workflow
+## 8. BOM (`App\Services\BomService`)
 
-WO membutuhkan resep (kebutuhan bahan dihitung `qty × porsi/yield × (1+susut)`).
-Konsumsi hanya untuk WO `RELEASED/IN_PROGRESS/PARTIAL`; penyelesaian menulis
-output produk + costing otomatis. Delivery mengurangi stok produk via FEFO;
-tracking bebas (`PLANNED→IN_TRANSIT→DELIVERED/PARTIAL/FAILED`).
+Multi-level (produk sebagai sub-assembly), explosion rekursif (max depth 10),
+deteksi siklus saat explode DAN saat tambah komponen, scaling qty, yield,
+scrap/waste %, konversi ke satuan dasar, seleksi versi effective-date.
+Approval mengarsipkan versi lama (histori reproduksibel).
 
-## 9. Testing
+## 9. Demand planning + MRP
 
-```powershell
-php artisan test                                   # semua (45 test, 219+ assertion)
-php artisan test --filter=InventoryTest            # ledger: FEFO, stok kurang, duplikat, rollback, konsistensi
-php artisan test --filter="ProcurementTest|ProductionTest|DistributionTest"
-php artisan test --filter=AuthTest                 # login, RBAC, isolasi org, render semua halaman
-php artisan test --filter=ApiTest                  # token Sanctum, stok, tracking kurir, isolasi org
-php artisan test --filter=WorkflowExtrasTest       # units, transfer, reservasi, recipients, nutrisi, bukti foto, notifikasi
+Demand plan: gross per sekolah×hari − ketidakhadiran + manual + safety
+(dihitung otomatis di model). MRP: explosion BOM/resep → gross; kurangi
+on-hand, reservasi, incoming PO; tambah safety (max setting vs forecast);
+net → saran beli (MOQ, supplier preferensi/termurah) dengan penjelasan
+per baris. Konversi garis → draft PR.
+
+## 10. Procurement 2.0
+
+RFQ multi-supplier → quotation per item → award otomatis termurah yang memenuhi
+qty → PO. Invoice: unik per (supplier, no), 3-way match (qty vs GR, harga vs PO),
+variansi ditampilkan, verifikasi ditolak bila variansi, status bayar,
+`invoice_status` di PO. Kontak/alamat/kontrak/price-list per supplier.
+
+## 11. WMS
+
+Gudang → Zona → Rak → Bin (barcode otomatis). Put-away batch ke bin.
+Karantina (BLOCKED + alasan) keluar dari FEFO; release mengembalikan.
+Halaman scan: input keyboard-wedge + kamera via BarcodeDetector (progressive
+enhancement). Lookup bin & batch → link genealogy.
+
+## 12. Production / MES
+
+Siklus: PLANNED → RELEASED (+notifikasi dapur) → MATERIAL_CHECK → IN_PROGRESS
+→ QC → COMPLETED/PARTIAL → PACKAGED → DISPATCHED. Material check validasi
+ketersediaan + hitung biaya teoritis. Operator/work-center assignment.
+Downtime tercatat + durasi. Tabel kebutuhan: teoritis vs aktual vs variansi.
+Capacity planning harian (beban vs kapasitas 8 jam, flag OVERLOAD/TIGHT/OK).
+
+## 13. QMS / Food Safety
+
+Template inspeksi (parameter + spec min/max). Inspeksi INCOMING/IN_PROCESS/
+FINISHED dengan foto; gagal otomatis → notifikasi + webhook + NCR.
+NCR: disposisi HOLD/REJECT mengkarantina batch; CAPA corrective/preventive;
+NCR close otomatis bila CAPA selesai. Temperature log CCP dengan spec bawaan
+per checkpoint; OOR wajib tindakan koreksi + peringatan.
+
+## 14. Traceability & Recall
+
+Genealogy forward (supplier→GR→produksi→batch jadi→delivery→sekolah) dan
+backward, dari ledger + referensi dokumen. Recall: hitung batch terdampak
+otomatis → aktivasi mengkarantina + notifikasi + webhook → contain → close.
+Laporan recall + halaman trace per batch.
+
+## 15. Nutrisi & alergen
+
+Gizi per resep & menu vs target; matriks alergen bahan↔penerima (pivot severity);
+meal group diet; filter penerima alergi; laporan nutrisi (tercukupi/di bawah target).
+
+## 16. Packaging & TMS & Portal
+
+Pemakaian material kemasan (kategori PACKAGING) keluar stok via ledger.
+TMS: rute + stop berurutan + window; apply rute mengisi kendaraan/kurir/urutan/
+ETA delivery; control tower (terkirim/terlambat/POD/exception). Portal sekolah
+(peran `school`): konfirmasi terima/tolak/kehadiran/keluhan/masukan + daftar keluhan.
+
+## 17. Costing & waste & analytics
+
+Costing aktual dari ledger + standar dari resep (variansi material & per porsi),
+riwayat harga beli per bahan. Waste analytics per alasan + tren. Executive
+dashboard (belanja, porsi, service level, waste, biaya/porsi, QC fail rate)
++ tren + advisory deterministik + export CSV (5 dataset). Laporan: stok,
+produksi, delivery, finansial, expired, intelligence (stockout/excess/turnover/
+dead stock), waste, supplier scorecard, recall, nutrisi.
+
+## 18. API v1 (Sanctum, 22 endpoint)
+
 ```
-
-## 11. API v1 (Sanctum)
-
-```
-POST /api/v1/token                 # email+password → bearer token (throttle login)
-GET  /api/v1/me                    # profil + peran (auth:sanctum)
-POST /api/v1/logout                # cabut token aktif
+POST /api/v1/token · GET /api/v1/me · POST /api/v1/logout
 GET  /api/v1/stock/summary|low|expiring|movements
-GET  /api/v1/deliveries[?mine=1]   # kurir: delivery-nya; tracking tanpa mutasi stok
-POST /api/v1/deliveries/{id}/track # status + GPS (validasi -90..90 / -180..180)
+GET  /api/v1/deliveries[?mine=1] · GET /api/v1/deliveries/{id}
+POST /api/v1/deliveries/{id}/track        # GPS -90..90/-180..180
+GET  /api/v1/schools[/{id}] · GET /api/v1/recipients[?school_id][?allergy] · GET /api/v1/allergens
+GET  /api/v1/demand-plans · GET /api/v1/mrp-runs[/{id}] · GET /api/v1/boms · POST /api/v1/bom-explode
+GET  /api/v1/production-orders[/{id}] · GET /api/v1/inspections · GET /api/v1/recalls[/{id}] · GET /api/v1/invoices
 ```
 
-Semua endpoint terotentikasi, ter-skup organisasi/kitchen. Mutasi stok
-(serah terima) tetap lewat UI web agar melewati ledger + FEFO yang sama.
+Throttle `api`, skop organisasi/kitchen, mutasi stok tetap via web (ledger sama).
+Arsitektur siap v2 tanpa merusak v1 (prefix versioning).
 
-## 12. Notifikasi workflow
+## 19. Webhooks & approvals & notifikasi
 
-Bell di navbar + halaman `/notifications`. Pemicu otomatis: PR disetujui/ditolak
-→ peminta; PO disetujui → gudang/pengadaan; GR → peringatan stok masih di bawah
-minimum; WO dirilis → tim dapur; QC FAILED/CONDITIONAL → admin; delivery selesai
-→ admin; scheduler expiry/low-stock → terkait. Peran memakai nama seed
-(`admin`, `warehouse`, `kitchen`, …) dan ter-skup organisasi.
+10 event (`stock.updated` … `recall.created`), langganan per org, secret
+HMAC-SHA256, queue + retry 5× + backoff, log pengiriman, retry manual,
+rotate secret. Approval engine reusable (append-only; dipakai PR/PO/BOM/
+siklus/NCR/invoice/recall + inbox). Event Laravel → webhook + notifikasi
+in-app (bell navbar + unread badge). Scheduler expiry/low-stock.
 
-## 13. Referensi CiptaCMS
+## 20. AI-ready (tanpa LLM)
 
-Kualitas: `./vendor/bin/pint --test` (style), kompilasi 79 Blade terverifikasi,
-`composer validate` OK.
+`AiAdvisorInterface` + `DeterministicAdvisor` (moving average, safety stock,
+days-of-stock, stockout risk, expiry/waste advisory) — explainable, tidak
+memutasi data. Adapter LLM masa depan hanya boleh mengembalikan AdvisoryResult.
 
-## 10. Operasional & deployment
+## 21. Multi-tenant & PWA
 
-- Scheduler: `mbg:expiry-check` (harian 06:00, menandai `EXPIRED` + notifikasi)
-  dan `mbg:low-stock-check` (per jam). `php artisan schedule:list` untuk verifikasi.
-- Production: `APP_DEBUG=false`, `php artisan config:cache route:cache view:cache`,
-  `migrate --force`, supervisor untuk `queue:work`, backup MySQL harian.
-- Keamanan: validasi di semua form, CSRF, mass-assignment (`$fillable`),
-  upload bukti delivery dibatasi path storage, session `http_only`/`same_site=lax`,
-  password `bcrypt(12)`, throttle login.
+Isolasi org di semua query tenant + test lintas-org. Feature flags (cache),
+settings per install, tenant export via seeder per org (roadmap: CLI).
+PWA: manifest + service worker (cache CDN statis saja, TIDAK cache HTML
+autentikasi) + layar operasional mobile-friendly + scan barcode.
 
-## 14. Referensi CiptaCMS
+## 22. Testing
 
-Pola yang diadaptasi (read-only, tanpa merusak sumber): struktur
-`bootstrap/app.php` Laravel 13, `SettingService`/menu composer, RBAC
-`Gate::before` untuk admin, artisan console kernel modern. Domain kitchen
-sepenuhnya baru dan mandiri.
+`php artisan test` — 81 test: auth/RBAC/isolasi-org, render ±70 halaman,
+inventory (FEFO/rollback/duplikat/konsistensi), procurement (+RFQ/invoice),
+produksi (+MES/capacity), distribusi, BOM (explosion/siklus/versi),
+MRP (netting/explanation/to-PR), WMS (lokasi/putaway/karantina/scan),
+QMS (fail→NCR→karantina→CAPA, suhu OOR), traceability (maju/mundur/recall),
+TMS/portal, platform (approval/webhook/audit-login/analytics/API),
+edge cases (stok kurang/expired/parsial/duplikat/GPS invalid/QC gagal/
+recall/BOM cycle/konversi invalid/hapus referensi).
+
+## 23. Operasional & keamanan
+
+Scheduler, `APP_DEBUG=false`, cache config/route/view, `migrate --force`,
+`queue:work` via supervisor, backup MySQL. Keamanan: validasi semua input
+(termasuk GPS range, MIME upload, ID referensi se-organisasi), CSRF,
+`$fillable`, upload terbatas, throttle, bcrypt(12), tanpa secret di repo,
+rate-limit API, token Sanctum per-device + pencabutan.
+
+## 24. Status: IMPLEMENTED vs ROADMAP
+
+IMPLEMENTED: semua modul §5 + engine §7–§21 + 81 test.
+ROADMAP (butuh sistem eksternal): payment gateway riil, SMS gateway,
+aplikasi mobile native, API v2 (flag sudah ada, nonaktif), SSO/LDAP,
+multi-database per tenant, EDI supplier.

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Core\Services\NotificationService;
+use App\Events\QcFailed;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\GoodsReceipt;
@@ -73,6 +74,7 @@ class QualityControlController extends Controller
                 'number' => $qc->number, 'result' => $result,
                 'reference' => class_basename($refType).' #'.$ref->id,
             ]);
+            event(new QcFailed($qc));
         }
 
         return redirect()->route('quality-controls.index')->with('success', "QC {$qc->number}: {$result}");

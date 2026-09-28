@@ -9,6 +9,11 @@ $cards = [
 ['Pengiriman & fulfillment', 'reports.delivery', 'ti-truck', 'Terkirim vs rencana per sekolah.', ['from' => now()->subDays(30)->toDateString(), 'to' => now()->toDateString()]],
 ['Keuangan', 'reports.financial', 'ti-coins', 'Biaya produksi, belanja, rugi waste.', ['from' => now()->subDays(30)->toDateString(), 'to' => now()->toDateString()]],
 ['Kedaluarsa', 'reports.expiry', 'ti-alarm', 'Batch mendekati expired.', ['days' => 30]],
+['Intelligence', 'reports.intelligence', 'ti-brain', 'Risiko stockout/expired, excess, turnover, dead stock.', []],
+['Waste Analytics', 'reports.waste', 'ti-trash', 'Rugi per alasan + tren.', ['from' => now()->subDays(30)->toDateString(), 'to' => now()->toDateString()]],
+['Supplier Scorecard', 'reports.supplier', 'ti-building', 'Ketepatan, belanja, QC gagal.', ['from' => now()->subDays(90)->toDateString(), 'to' => now()->toDateString()]],
+['Recall', 'reports.recall', 'ti-alert-triangle', 'Riwayat recall + batch terdampak.', []],
+['Nutrisi vs Target', 'reports.nutrition', 'ti-apple', 'Capaian gizi menu vs target.', []],
 ];
 @endphp
 @foreach($cards as [$title, $route, $icon, $desc, $params])
