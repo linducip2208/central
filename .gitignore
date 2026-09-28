@@ -10,6 +10,9 @@
 /storage/app/public/delivery-proofs/*
 /storage/app/public/qc-photos/*
 !/storage/app/public/.gitignore
+/storage/app/tenant-exports/*
+/storage/app/scheduled/*
+!/storage/app/.gitignore
 .env
 .env.backup
 .env.production
