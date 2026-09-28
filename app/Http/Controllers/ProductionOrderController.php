@@ -14,6 +14,7 @@ use App\Models\Warehouse;
 use App\Models\WorkCenter;
 use App\Services\CostingService;
 use App\Services\InventoryService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -166,10 +167,11 @@ class ProductionOrderController extends Controller
     }
 
     /** Selesaikan produksi: catat output ke stok + costing otomatis. */
-    public function complete(Request $request, ProductionOrder $order, InventoryService $inventory, CostingService $costing)
+    public function complete(Request $request, ProductionOrder $order, InventoryService $inventory, CostingService $costing, PeriodService $periods)
     {
         abort_unless($order->isCompletable(), 422);
         $this->ensureWarehouse((int) $request->get('warehouse_id'));
+        $periods->assertOpen($order->organization_id, $order->central_kitchen_id, now()->toDateString());
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'produced_qty' => 'required|numeric|min:0',

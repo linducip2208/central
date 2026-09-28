@@ -39,7 +39,7 @@ class SchoolController extends Controller
             'address' => 'nullable|string', 'district' => 'nullable|string|max:100', 'city' => 'nullable|string|max:100',
             'pic_name' => 'nullable|string|max:255', 'pic_phone' => 'nullable|string|max:30',
             'student_count' => 'required|integer|min:0', 'target_portions' => 'required|integer|min:0',
-            'distance_km' => 'nullable|numeric|min:0',
+            'distance_km' => 'nullable|numeric|min:0', 'latitude' => 'nullable|numeric|between:-90,90', 'longitude' => 'nullable|numeric|between:-180,180', 'geofence_radius_m' => 'nullable|numeric|min:50',
             'status' => 'required|in:ACTIVE,INACTIVE',
         ]);
         $data['organization_id'] = $request->user()->organization_id;
@@ -76,7 +76,7 @@ class SchoolController extends Controller
             'address' => 'nullable|string', 'district' => 'nullable|string|max:100', 'city' => 'nullable|string|max:100',
             'pic_name' => 'nullable|string|max:255', 'pic_phone' => 'nullable|string|max:30',
             'student_count' => 'required|integer|min:0', 'target_portions' => 'required|integer|min:0',
-            'distance_km' => 'nullable|numeric|min:0',
+            'distance_km' => 'nullable|numeric|min:0', 'latitude' => 'nullable|numeric|between:-90,90', 'longitude' => 'nullable|numeric|between:-180,180', 'geofence_radius_m' => 'nullable|numeric|min:50',
             'status' => 'required|in:ACTIVE,INACTIVE',
         ]);
         $school->update($data);

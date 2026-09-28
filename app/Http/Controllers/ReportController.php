@@ -14,7 +14,9 @@ use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
 use App\Models\QualityInspection;
 use App\Models\Recall;
+use App\Models\ScheduledReport;
 use App\Models\Supplier;
+use App\Models\SupplierInvoice;
 use App\Models\Warehouse;
 use App\Models\Waste;
 use App\Services\ForecastService;
@@ -22,9 +24,33 @@ use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return view('reports.index');
+        $schedules = ScheduledReport::where('organization_id', $request->user()->organization_id)->get();
+
+        return view('reports.index', compact('schedules'));
+    }
+
+    public function scheduleStore(Request $request)
+    {
+        $data = $request->validate([
+            'dataset' => 'required|in:movements,deliveries,production,waste,costing',
+            'frequency' => 'required|in:DAILY,WEEKLY,MONTHLY',
+        ]);
+        ScheduledReport::firstOrCreate(
+            ['organization_id' => $request->user()->organization_id, 'dataset' => $data['dataset']],
+            $data + ['is_active' => true, 'created_by' => $request->user()->id]
+        );
+
+        return back()->with('success', 'Jadwal laporan dibuat. Dijalankan via `php artisan mbg:run-scheduled-reports`.');
+    }
+
+    public function scheduleToggle(ScheduledReport $schedule)
+    {
+        abort_unless((int) $schedule->organization_id === (int) request()->user()->organization_id, 403);
+        $schedule->update(['is_active' => ! $schedule->is_active]);
+
+        return back()->with('success', 'Jadwal diperbarui.');
     }
 
     /** Intelligence: risiko expired, risiko stockout, excess, aging, turnover. */
@@ -114,6 +140,45 @@ class ReportController extends Controller
         $recalls = Recall::where('organization_id', $request->user()->organization_id)->withCount('items')->latest()->take(30)->get();
 
         return view('reports.recall', compact('recalls'));
+    }
+
+    public function apAging(Request $request)
+    {
+        $invoices = SupplierInvoice::with(['supplier'])
+            ->where('organization_id', $request->user()->organization_id)
+            ->where('payment_status', 'UNPAID')
+            ->whereNotNull('due_date')
+            ->orderBy('due_date')->get()
+            ->map(function ($inv) {
+                $overdue = now()->startOfDay()->gt($inv->due_date);
+                $bucket = $overdue ? ($inv->due_date->diffInDays(now()).' hari lewat') : ($inv->due_date->diffInDays(now()).' hari lagi');
+                $inv->bucket = $bucket;
+                $inv->is_overdue = $overdue;
+
+                return $inv;
+            });
+        $total = $invoices->sum('grand_total');
+        $overdueTotal = $invoices->where('is_overdue', true)->sum('grand_total');
+
+        return view('reports.ap-aging', compact('invoices', 'total', 'overdueTotal'));
+    }
+
+    public function schoolCost(Request $request)
+    {
+        $from = $request->get('from', now()->subDays(30)->toDateString());
+        $to = $request->get('to', now()->toDateString());
+        // Alokasi: porsi terkirim per sekolah × biaya rata-rata per porsi periode.
+        $avgCost = (float) Costing::where('organization_id', $request->user()->organization_id)
+            ->whereBetween('costing_date', [$from, $to])->avg('cost_per_portion');
+        $rows = Delivery::with(['school'])
+            ->where('organization_id', $request->user()->organization_id)
+            ->whereBetween('delivery_date', [$from, $to])
+            ->selectRaw('school_id, SUM(qty_delivered) as portions, SUM(qty_returned) as returned')
+            ->groupBy('school_id')->get()
+            ->map(fn ($r) => ['school' => $r->school->name ?? '-', 'portions' => (int) $r->portions, 'returned' => (int) $r->returned, 'cost' => (int) $r->portions * $avgCost])
+            ->sortByDesc('cost')->values();
+
+        return view('reports.school-cost', compact('rows', 'from', 'to', 'avgCost'));
     }
 
     public function nutrition(Request $request)

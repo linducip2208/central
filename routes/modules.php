@@ -31,6 +31,7 @@ use App\Http\Controllers\RecallController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\RecipientController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\RfqController;
 use App\Http\Controllers\SchoolController;
 use App\Http\Controllers\StockOpnameController;
@@ -203,6 +204,11 @@ Route::middleware('permission:distribution.view')->group(function () {
     Route::post('/distributions/{dist}/dispatch', [DistributionController::class, 'dispatch'])->name('distributions.dispatch')->middleware('permission:distribution.create');
 });
 Route::middleware('permission:delivery.view')->group(function () {
+    Route::get('/returns', [ReturnController::class, 'index'])->name('returns.index');
+    Route::get('/deliveries/{delivery}/returns/create', [ReturnController::class, 'create'])->name('returns.create')->middleware('permission:delivery.update');
+    Route::post('/deliveries/{delivery}/returns', [ReturnController::class, 'store'])->name('returns.store')->middleware('permission:delivery.update');
+    Route::post('/returns/{ret}/restock', [ReturnController::class, 'restock'])->name('returns.restock')->middleware('permission:inventory.adjust');
+    Route::post('/returns/{ret}/waste', [ReturnController::class, 'waste'])->name('returns.waste')->middleware('permission:waste.create');
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
     Route::get('/deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
     Route::post('/deliveries/{delivery}/deliver', [DeliveryController::class, 'deliver'])->name('deliveries.deliver')->middleware('permission:delivery.update');
@@ -225,6 +231,8 @@ Route::middleware('permission:costing.view')->group(function () {
 // Reports
 Route::middleware('permission:report.view')->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::post('/reports/schedules', [ReportController::class, 'scheduleStore'])->name('reports.schedules.store');
+    Route::post('/reports/schedules/{schedule}/toggle', [ReportController::class, 'scheduleToggle'])->name('reports.schedules.toggle');
     Route::get('/reports/stock', [ReportController::class, 'stock'])->name('reports.stock');
     Route::get('/reports/production', [ReportController::class, 'production'])->name('reports.production');
     Route::get('/reports/delivery', [ReportController::class, 'delivery'])->name('reports.delivery');
@@ -235,6 +243,8 @@ Route::middleware('permission:report.view')->group(function () {
     Route::get('/reports/supplier', [ReportController::class, 'supplier'])->name('reports.supplier');
     Route::get('/reports/recall', [ReportController::class, 'recall'])->name('reports.recall');
     Route::get('/reports/nutrition', [ReportController::class, 'nutrition'])->name('reports.nutrition');
+    Route::get('/reports/ap-aging', [ReportController::class, 'apAging'])->name('reports.ap-aging');
+    Route::get('/reports/school-cost', [ReportController::class, 'schoolCost'])->name('reports.school-cost');
 });
 
 // Notifications
@@ -259,6 +269,12 @@ Route::middleware('permission:audit.view')->group(function () {
 Route::middleware('permission:setting.view')->group(function () {
     Route::get('/settings', [AdminController::class, 'settingIndex'])->name('settings.index');
     Route::post('/settings', [AdminController::class, 'settingStore'])->name('settings.store');
+    Route::get('/closings', [AdminController::class, 'closingIndex'])->name('closings.index');
+    Route::post('/closings', [AdminController::class, 'closingStore'])->name('closings.store');
+});
+Route::middleware('permission:costing.view')->group(function () {
+    Route::get('/budgets', [AdminController::class, 'budgetIndex'])->name('budgets.index');
+    Route::post('/budgets', [AdminController::class, 'budgetStore'])->name('budgets.store');
 });
 
 // BOM
@@ -358,6 +374,7 @@ Route::middleware('permission:tms.view')->group(function () {
     Route::post('/tms/routes/{route}/stops', [TmsController::class, 'storeStop'])->name('tms.stops.store');
     Route::delete('/tms/stops/{stop}', [TmsController::class, 'destroyStop'])->name('tms.stops.destroy');
     Route::post('/tms/routes/{route}/apply', [TmsController::class, 'applyRoute'])->name('tms.routes.apply');
+    Route::post('/tms/routes/{route}/optimize', [TmsController::class, 'optimize'])->name('tms.routes.optimize');
     Route::get('/tms/tower', [TmsController::class, 'controlTower'])->name('tms.tower');
 });
 

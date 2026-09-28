@@ -16,6 +16,11 @@ class DeliveryRoute extends Model
         return ['is_active' => 'boolean'];
     }
 
+    public function centralKitchen()
+    {
+        return $this->belongsTo(CentralKitchen::class);
+    }
+
     public function stops()
     {
         return $this->hasMany(DeliveryRouteStop::class)->orderBy('sequence');

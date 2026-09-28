@@ -10,6 +10,7 @@ use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -61,9 +62,10 @@ class InventoryController extends Controller
         return view('inventory.adjust', compact('warehouses', 'ingredients'));
     }
 
-    public function adjust(Request $request, InventoryService $inventory)
+    public function adjust(Request $request, InventoryService $inventory, PeriodService $periods)
     {
         $this->ensureWarehouse((int) $request->get('warehouse_id'));
+        $periods->assertOpen($request->user()->organization_id, Warehouse::find($request->get('warehouse_id'))?->central_kitchen_id, now()->toDateString());
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'ingredient_id' => 'required|exists:ingredients,id',
@@ -93,10 +95,11 @@ class InventoryController extends Controller
         return view('inventory.transfer', compact('warehouses', 'ingredients'));
     }
 
-    public function transfer(Request $request, InventoryService $inventory)
+    public function transfer(Request $request, InventoryService $inventory, PeriodService $periods)
     {
         $this->ensureWarehouse((int) $request->get('from_warehouse_id'));
         $this->ensureWarehouse((int) $request->get('to_warehouse_id'));
+        $periods->assertOpen($request->user()->organization_id, Warehouse::find($request->get('from_warehouse_id'))?->central_kitchen_id, now()->toDateString());
         $data = $request->validate([
             'from_warehouse_id' => 'required|exists:warehouses,id|different:to_warehouse_id',
             'to_warehouse_id' => 'required|exists:warehouses,id',

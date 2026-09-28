@@ -9,6 +9,7 @@ use App\Models\DeliveryRoute;
 use App\Models\DeliveryRouteStop;
 use App\Models\School;
 use App\Models\Vehicle;
+use App\Services\GeofenceService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,28 @@ class TmsController extends Controller
         $stop->delete();
 
         return back()->with('success', 'Stop dihapus.');
+    }
+
+    /** Optimasi urutan stop (nearest-neighbor dari koordinat dapur). */
+    public function optimize(DeliveryRoute $route, GeofenceService $geo)
+    {
+        $this->ensureOrgAccess($route);
+        $route->load(['stops.school', 'centralKitchen']);
+        $depot = $route->centralKitchen;
+        abort_unless($depot?->latitude !== null && $depot?->longitude !== null, 422, 'Isi koordinat dapur dahulu (menu Central Kitchen).');
+        $stops = [];
+        foreach ($route->stops as $stop) {
+            if ($stop->school?->latitude !== null && $stop->school?->longitude !== null) {
+                $stops[$stop->id] = ['lat' => (float) $stop->school->latitude, 'lon' => (float) $stop->school->longitude];
+            }
+        }
+        abort_unless(count($stops) >= 2, 422, 'Minimal 2 stop berkoordinat untuk optimasi.');
+        $order = $geo->optimizeSequence((float) $depot->latitude, (float) $depot->longitude, $stops);
+        foreach (array_values($order) as $i => $stopId) {
+            DeliveryRouteStop::whereKey($stopId)->update(['sequence' => $i + 1]);
+        }
+
+        return back()->with('success', 'Urutan stop dioptimasi (nearest-neighbor dari dapur).');
     }
 
     /** Terapkan rute ke delivery: isi vehicle/driver/sequence/ETA per stop. */

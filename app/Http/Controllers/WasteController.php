@@ -9,6 +9,7 @@ use App\Models\Warehouse;
 use App\Models\Waste;
 use App\Services\InventoryService;
 use App\Services\NumberService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -35,7 +36,7 @@ class WasteController extends Controller
         return view('wastes.form', ['waste' => new Waste, 'warehouses' => $warehouses, 'ingredients' => $ingredients]);
     }
 
-    public function store(Request $request, NumberService $numbers, InventoryService $inventory)
+    public function store(Request $request, NumberService $numbers, InventoryService $inventory, PeriodService $periods)
     {
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
@@ -47,6 +48,7 @@ class WasteController extends Controller
         ]);
         $this->ensureWarehouse((int) $data['warehouse_id']);
         $this->ensureOrgAccess(Ingredient::findOrFail($data['ingredient_id']));
+        $periods->assertOpen($request->user()->organization_id, Warehouse::find($data['warehouse_id'])->central_kitchen_id, now()->toDateString());
         try {
             $waste = DB::transaction(function () use ($request, $data, $numbers, $inventory) {
                 $ing = Ingredient::find($data['ingredient_id']);

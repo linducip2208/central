@@ -12,6 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use App\Services\NumberService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -43,7 +44,7 @@ class GoodsReceiptController extends Controller
      * Posting penerimaan: validasi sisa PO → ledger receive per item → update qty_received → status PO.
      * Idempotent: double-submit dengan nomor sama ditolak via unique + duplicate guard di service.
      */
-    public function store(Request $request, NumberService $numbers, InventoryService $inventory)
+    public function store(Request $request, NumberService $numbers, InventoryService $inventory, PeriodService $periods)
     {
         $data = $request->validate([
             'purchase_order_id' => 'required|exists:purchase_orders,id',
@@ -61,6 +62,7 @@ class GoodsReceiptController extends Controller
         $po = PurchaseOrder::with('items')->findOrFail($data['purchase_order_id']);
         $this->ensureOrgAccess($po);
         $this->ensureWarehouse((int) $data['warehouse_id']);
+        $periods->assertOpen($po->organization_id, $po->central_kitchen_id, now()->toDateString());
         abort_unless(in_array($po->status, ['APPROVED', 'PARTIAL']), 422, 'PO belum disetujui.');
 
         try {

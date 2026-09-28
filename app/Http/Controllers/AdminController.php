@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use App\Core\Services\SettingService;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\AuditLog;
+use App\Models\CentralKitchen;
+use App\Models\KitchenBudget;
+use App\Models\PeriodClosing;
 use App\Models\User;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -104,6 +108,61 @@ class AdminController extends Controller
         $settings->set($request->key, $request->value);
 
         return back()->with('success', 'Pengaturan tersimpan.');
+    }
+
+    // ---- Period closing ----
+    public function closingIndex(Request $request)
+    {
+        $closings = PeriodClosing::with(['centralKitchen'])
+            ->where('organization_id', $request->user()->organization_id)
+            ->latest()->take(20)->get();
+        $kitchens = CentralKitchen::active()->where('organization_id', $request->user()->organization_id)->get();
+
+        return view('admin.closings', compact('closings', 'kitchens'));
+    }
+
+    public function closingStore(Request $request, PeriodService $periods)
+    {
+        $data = $request->validate([
+            'central_kitchen_id' => 'nullable|exists:central_kitchens,id',
+            'closed_before' => 'required|date',
+        ]);
+        if (! empty($data['central_kitchen_id'])) {
+            $kitchen = CentralKitchen::findOrFail($data['central_kitchen_id']);
+            abort_unless((int) $kitchen->organization_id === (int) $request->user()->organization_id, 403);
+        }
+        $periods->close($request->user()->organization_id, $data['central_kitchen_id'] ?? null, $data['closed_before'], $request->user()->id);
+
+        return back()->with('success', 'Periode ditutup. Posting sebelum tanggal tersebut dikunci.');
+    }
+
+    // ---- Budgets ----
+    public function budgetIndex(Request $request)
+    {
+        $budgets = KitchenBudget::with(['centralKitchen'])
+            ->where('organization_id', $request->user()->organization_id)
+            ->orderByDesc('period')->take(24)->get();
+        $kitchens = CentralKitchen::active()->where('organization_id', $request->user()->organization_id)->get();
+
+        return view('admin.budgets', compact('budgets', 'kitchens'));
+    }
+
+    public function budgetStore(Request $request)
+    {
+        $data = $request->validate([
+            'central_kitchen_id' => 'required|exists:central_kitchens,id',
+            'period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
+            'amount' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ]);
+        $kitchen = CentralKitchen::findOrFail($data['central_kitchen_id']);
+        abort_unless((int) $kitchen->organization_id === (int) $request->user()->organization_id, 403);
+        KitchenBudget::updateOrCreate(
+            ['central_kitchen_id' => $kitchen->id, 'period' => $data['period']],
+            $data + ['organization_id' => $request->user()->organization_id]
+        );
+
+        return back()->with('success', 'Budget tersimpan.');
     }
 
     // ---- Notifications ----

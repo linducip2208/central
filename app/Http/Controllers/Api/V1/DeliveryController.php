@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
+use App\Services\GeofenceService;
 use Illuminate\Http\Request;
 
 class DeliveryController extends Controller
@@ -29,7 +30,7 @@ class DeliveryController extends Controller
     }
 
     /** Update posisi/status oleh kurir (tanpa mutasi stok — mutasi tetap via web serah terima). */
-    public function track(Request $request, Delivery $delivery)
+    public function track(Request $request, Delivery $delivery, GeofenceService $geo)
     {
         abort_unless((int) $delivery->organization_id === (int) $request->user()->organization_id, 403);
         $data = $request->validate([
@@ -38,11 +39,23 @@ class DeliveryController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
         ]);
+        $delivery->load('school');
+        $geofence = null;
+        if (isset($data['latitude'], $data['longitude']) && $delivery->school?->latitude !== null && $delivery->school?->longitude !== null) {
+            $inside = $geo->inside((float) $data['latitude'], (float) $data['longitude'], (float) $delivery->school->latitude, (float) $delivery->school->longitude, (float) ($delivery->school->geofence_radius_m ?? 300));
+            $geofence = $inside ? 'INSIDE' : 'OUTSIDE';
+            if (! $inside && in_array($data['status'], ['DELIVERED', 'ARRIVED'])) {
+                return response()->json(['message' => 'Di luar geofence sekolah ('.(int) $geo->distanceMeters((float) $data['latitude'], (float) $data['longitude'], (float) $delivery->school->latitude, (float) $delivery->school->longitude).' m). Dekati lokasi dahulu.'], 422);
+            }
+        }
         $tracking = $delivery->trackings()->create($data + ['created_by' => $request->user()->id]);
         if (in_array($data['status'], ['IN_TRANSIT']) && $delivery->status === 'PLANNED') {
             $delivery->update(['status' => 'IN_TRANSIT', 'dispatched_at' => now()]);
         }
+        if ($data['status'] === 'ARRIVED') {
+            $delivery->update(['actual_arrival' => now()]);
+        }
 
-        return response()->json($tracking, 201);
+        return response()->json($tracking->fresh()->append([])->toArray() + ['geofence' => $geofence], 201);
     }
 }

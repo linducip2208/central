@@ -25,6 +25,7 @@
 <div class="mb-2"><label class="form-label">Nama *</label><input name="name" class="form-control" required/></div>
 <div class="mb-2"><label class="form-label">Kota</label><input name="city" class="form-control"/></div>
 <div class="mb-2"><label class="form-label">Kapasitas/hari</label><input name="daily_capacity" type="number" min="0" class="form-control"/></div>
+<div class="row g-1 mb-2"><div class="col-6"><label class="form-label">Latitude</label><input name="latitude" type="number" step="0.0000001" class="form-control"/></div><div class="col-6"><label class="form-label">Longitude</label><input name="longitude" type="number" step="0.0000001" class="form-control"/></div></div>
 <div class="mb-2"><label class="form-label">Penanggung jawab</label><input name="pic_name" class="form-control"/></div>
 <div class="mb-2"><label class="form-label">Telepon PJ</label><input name="pic_phone" class="form-control"/></div>
 <button class="btn btn-primary" type="submit">Tambah</button>

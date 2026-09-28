@@ -58,6 +58,15 @@ class ExpansionSeeder extends Seeder
         MealGroup::firstOrCreate(['code' => 'REGULER'], ['organization_id' => $org->id, 'name' => 'Reguler', 'is_active' => true]);
         MealGroup::firstOrCreate(['code' => 'VEGETARIAN'], ['organization_id' => $org->id, 'name' => 'Vegetarian', 'dietary_notes' => 'Tanpa daging/ayam/ikan', 'is_active' => true]);
 
+        // Koordinat demo: dapur di Monas, sekolah menyebar (untuk optimasi + geofence).
+        $ck->update(['latitude' => -6.1754, 'longitude' => 106.8272]);
+        $coords = [[-6.1954, 106.8239], [-6.2146, 106.8451], [-6.1692, 106.8319], [-6.2297, 106.8294], [-6.1865, 106.8003]];
+        $si = 0;
+        foreach (School::where('central_kitchen_id', $ck->id)->take(5)->get() as $school) {
+            $school->update(['latitude' => $coords[$si][0], 'longitude' => $coords[$si][1], 'geofence_radius_m' => 500]);
+            $si++;
+        }
+
         // Kendaraan + rute + stop.
         $v = Vehicle::firstOrCreate(['plate_no' => 'B 1234 MBG'], [
             'organization_id' => $org->id, 'central_kitchen_id' => $ck->id,

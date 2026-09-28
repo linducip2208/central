@@ -2,6 +2,7 @@
 @section('title', 'Rute ' . $route->name)
 @section('subtitle', ($route->vehicle->plate_no ?? 'tanpa kendaraan') . ' · ' . ($route->driver->name ?? 'tanpa kurir'))
 @section('actions')
+<form method="POST" action="{{ route('tms.routes.optimize', $route) }}" class="d-inline">@csrf<button class="btn btn-white" type="submit" title="Butuh koordinat dapur + sekolah">Optimasi urutan</button></form>
 <form method="POST" action="{{ route('tms.routes.apply', $route) }}" class="d-inline">@csrf<button class="btn btn-success" type="submit">Terapkan ke delivery aktif</button></form>
 @endsection
 @section('content')

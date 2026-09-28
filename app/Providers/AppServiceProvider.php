@@ -61,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api', fn (Request $r) => Limit::perMinute(120)->by($r->user()?->id ?: $r->ip()));
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(10)->by(strtolower((string) $r->input('email')).'|'.$r->ip()));
+        RateLimiter::for('2fa', fn (Request $r) => Limit::perMinute(5)->by($r->session()->get('2fa:user_id', $r->ip())));
 
         foreach ([GoodsReceived::class, ProductionCompleted::class, QcFailed::class, InspectionFailed::class, DeliveryCompleted::class, RecallCreated::class] as $event) {
             Event::listen($event, DispatchEventWebhooks::class);

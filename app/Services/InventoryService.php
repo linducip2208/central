@@ -124,6 +124,60 @@ class InventoryService
         });
     }
 
+    /**
+     * Penerimaan non-pembelian (retur baik, hasil koreksi): batch baru + ledger.
+     *
+     * @param  array{warehouse_id:int,item_type:string,item_id:int,qty:float,unit_id?:int,unit_cost:float,batch_no?:string,expiry_date?:string,reference_type?:string,reference_id?:int,reference_no?:string,movement_date?:string,notes?:string,organization_id?:int}  $data
+     */
+    public function restock(array $data, string $movementType = 'RETURN'): Batch
+    {
+        $this->guardQty($data['qty']);
+
+        return DB::transaction(function () use ($data, $movementType) {
+            $this->assertNoDuplicate($movementType, $data);
+
+            $batch = Batch::create([
+                'organization_id' => $data['organization_id'] ?? $this->orgId(),
+                'warehouse_id' => $data['warehouse_id'],
+                'item_type' => $data['item_type'],
+                'item_id' => $data['item_id'],
+                'batch_no' => $data['batch_no'] ?? $this->numbers->batchNo('RTN'),
+                'production_date' => $data['production_date'] ?? null,
+                'expiry_date' => $data['expiry_date'] ?? null,
+                'supplier_id' => null,
+                'source_type' => $movementType === 'RETURN' ? 'RETURN' : 'ADJUSTMENT',
+                'source_id' => $data['reference_id'] ?? null,
+                'initial_qty' => $data['qty'],
+                'remaining_qty' => $data['qty'],
+                'unit_cost' => $data['unit_cost'],
+                'status' => 'AVAILABLE',
+            ]);
+
+            $stock = $this->lockStockRow($data['warehouse_id'], $data['item_type'], $data['item_id'], $batch->id);
+            $before = (float) $stock->qty;
+            $stock->qty = $before + (float) $data['qty'];
+            $stock->avg_cost = $this->avgCost($stock->avg_cost, $before, (float) $data['unit_cost'], (float) $data['qty']);
+            $stock->save();
+
+            $this->ledger([
+                'organization_id' => $batch->organization_id,
+                'warehouse_id' => $batch->warehouse_id,
+                'batch_id' => $batch->id,
+                'item_type' => $data['item_type'],
+                'item_id' => $data['item_id'],
+                'movement_type' => $movementType,
+                'direction' => 'IN',
+                'qty' => $data['qty'],
+                'unit_id' => $data['unit_id'] ?? null,
+                'stock_before' => $before,
+                'stock_after' => (float) $stock->qty,
+                'unit_cost' => $data['unit_cost'],
+            ] + $this->refFields($data));
+
+            return $batch->fresh();
+        });
+    }
+
     // ------------------------------------------------------------------
     // OUT: konsumsi FEFO (produksi / waste / delivery / transfer keluar)
     // ------------------------------------------------------------------

@@ -11,7 +11,7 @@ class CentralKitchen extends Model
 {
     use Auditable, HasSlug, SoftDeletes;
 
-    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'address', 'city', 'pic_name', 'pic_phone', 'daily_capacity', 'status'];
+    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'address', 'city', 'pic_name', 'pic_phone', 'daily_capacity', 'latitude', 'longitude', 'status'];
 
     protected function casts(): array
     {

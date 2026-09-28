@@ -20,6 +20,7 @@
 </div>
 </a>
 <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+<a href="{{ route('profile.show') }}" class="dropdown-item">Profil & keamanan</a>
 <a href="{{ route('notifications.index') }}" class="dropdown-item">Notifikasi</a>
 <div class="dropdown-divider"></div>
 <form method="POST" action="{{ route('logout') }}">@csrf<button class="dropdown-item" type="submit">Keluar</button></form>

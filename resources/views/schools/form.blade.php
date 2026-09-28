@@ -19,6 +19,9 @@
 <div class="col-md-4"><label class="form-label">Penanggung jawab</label><input name="pic_name" class="form-control" value="{{ old('pic_name', $school->pic_name) }}"/></div>
 <div class="col-md-4"><label class="form-label">Telepon PJ</label><input name="pic_phone" class="form-control" value="{{ old('pic_phone', $school->pic_phone) }}"/></div>
 <div class="col-md-2"><label class="form-label">Jarak (km)</label><input name="distance_km" type="number" step="0.1" min="0" class="form-control" value="{{ old('distance_km', $school->distance_km ?? 0) }}"/></div>
+<div class="col-md-2"><label class="form-label">Latitude</label><input name="latitude" type="number" step="0.0000001" min="-90" max="90" class="form-control" value="{{ old('latitude', $school->latitude) }}"/></div>
+<div class="col-md-2"><label class="form-label">Longitude</label><input name="longitude" type="number" step="0.0000001" min="-180" max="180" class="form-control" value="{{ old('longitude', $school->longitude) }}"/></div>
+<div class="col-md-2"><label class="form-label">Radius geofence (m)</label><input name="geofence_radius_m" type="number" step="0.1" min="50" class="form-control" value="{{ old('geofence_radius_m', $school->geofence_radius_m ?? 300) }}"/></div>
 <div class="col-md-2"><label class="form-label">Status *</label>
 <select name="status" class="form-select">@foreach(['ACTIVE','INACTIVE'] as $s)<option value="{{ $s }}" @selected(old('status', $school->status ?? 'ACTIVE') === $s)>{{ $s }}</option>@endforeach</select></div>
 </div>

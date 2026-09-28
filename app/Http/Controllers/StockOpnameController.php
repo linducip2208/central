@@ -11,6 +11,7 @@ use App\Models\StockOpname;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use App\Services\NumberService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -105,10 +106,10 @@ class StockOpnameController extends Controller
     }
 
     /** Posting: selisih fisik vs sistem menjadi movement STOCK_OPNAME per item. */
-    public function post(Request $request, StockOpname $opname, InventoryService $inventory)
+    public function post(Request $request, StockOpname $opname, InventoryService $inventory, PeriodService $periods)
     {
-        $this->ensureOrgAccess($opname);
         abort_unless($opname->status === 'APPROVED', 422, 'Opname harus APPROVED sebelum posting.');
+        $periods->assertOpen($opname->organization_id, $opname->central_kitchen_id, now()->toDateString());
         try {
             DB::transaction(function () use ($opname, $inventory) {
                 $opname->load('items');

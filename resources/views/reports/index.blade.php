@@ -14,6 +14,8 @@ $cards = [
 ['Supplier Scorecard', 'reports.supplier', 'ti-building', 'Ketepatan, belanja, QC gagal.', ['from' => now()->subDays(90)->toDateString(), 'to' => now()->toDateString()]],
 ['Recall', 'reports.recall', 'ti-alert-triangle', 'Riwayat recall + batch terdampak.', []],
 ['Nutrisi vs Target', 'reports.nutrition', 'ti-apple', 'Capaian gizi menu vs target.', []],
+['AP Aging', 'reports.ap-aging', 'ti-file-invoice', 'Utang supplier belum bayar per jatuh tempo.', []],
+['Biaya Sekolah', 'reports.school-cost', 'ti-school', 'Alokasi biaya per sekolah.', ['from' => now()->subDays(30)->toDateString(), 'to' => now()->toDateString()]],
 ];
 @endphp
 @foreach($cards as [$title, $route, $icon, $desc, $params])
@@ -26,4 +28,20 @@ $cards = [
 </div>
 @endforeach
 </div>
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Laporan terjadwal</h3></div>
+<div class="card-body">
+<form method="POST" action="{{ route('reports.schedules.store') }}" class="row g-2">@csrf
+<div class="col-md-4"><select name="dataset" class="form-select">@foreach(['movements','deliveries','production','waste','costing'] as $d)<option value="{{ $d }}">{{ $d }}</option>@endforeach</select></div>
+<div class="col-md-4"><select name="frequency" class="form-select"><option value="DAILY">DAILY</option><option value="WEEKLY">WEEKLY</option><option value="MONTHLY">MONTHLY</option></select></div>
+<div class="col-md-4"><button class="btn btn-primary" type="submit">Jadwalkan</button></div>
+</form>
+</div>
+<div class="table-responsive"><table class="table table-vcenter card-table">
+<thead><tr><th>Dataset</th><th>Frekuensi</th><th>Terakhir jalan</th><th>Aktif</th><th></th></tr></thead>
+<tbody>
+@forelse($schedules as $s)
+<tr><td>{{ $s->dataset }}</td><td>{{ $s->frequency }}</td><td class="text-secondary">{{ $s->last_run_at?->format('d M Y H:i') ?? '—' }}</td><td>@if($s->is_active)<span class="badge bg-green-lt">AKTIF</span>@else<span class="badge bg-secondary-lt">OFF</span>@endif</td>
+<td class="text-end"><form method="POST" action="{{ route('reports.schedules.toggle', $s) }}">@csrf<button class="btn btn-sm btn-white" type="submit">Toggle</button></form></td></tr>
+@empty<tr><td colspan="5" class="text-center text-secondary py-2">Belum ada jadwal.</td></tr>@endforelse
+</tbody></table></div></div>
 @endsection

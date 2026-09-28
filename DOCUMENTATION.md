@@ -28,7 +28,7 @@ Login default: `admin@mbg.id / password123` (super-admin); plus
 
 ## 3. Database, migrasi, seeding
 
-- `php artisan migrate` — 19 migrasi: 15 domain (`2026_01_01_00000{1..9}`,
+- `php artisan migrate` — 20 migrasi: 16 domain (`2026_01_01_00000{1..9}`,
   `000010` sanctum, `000011` master expansion, `000012` planning,
   `000013` quality/trace, `000014` alter operasional, `000015` indeks performa)
   + 4 vendor (spatie permission & activitylog).
@@ -62,10 +62,10 @@ GR · Invoice + 3-way match · Inventory + Ledger · Batch/Expired · Lokasi WMS
 Scan Barcode · Traceability · Opname · Transfer · Reservasi · Rencana Produksi ·
 WO/MES (work center, operator, downtime, material check, teoritis vs aktual) ·
 QC klasik + QMS (inspeksi, NCR/CAPA, suhu CCP, karantina) · Recall ·
-Packaging (+material) · Distribusi · Delivery (+POD foto, GPS) · Rute TMS +
+Packaging (+material) · Distribusi · Delivery (+POD foto, GPS, geofence) · Retur (restock/waste) · Rute TMS +
 Control Tower · Portal Sekolah · Waste + Analytics · Costing (standar vs aktual,
-riwayat harga) · Laporan (11 jenis) · Analytics eksekutif + CSV · Notifikasi ·
-Webhooks · Users/Roles/Settings/Feature Flags · API v1 (24 endpoint). ±270 route.
+riwayat harga) · Laporan (13 jenis: +AP aging, biaya sekolah) · Analytics eksekutif + CSV · Notifikasi ·
+Webhooks · 2FA + Token API + Profil · Budget vs Realisasi · Tutup Periode · Laporan terjadwal · Users/Roles/Settings/Feature Flags · API v1 (24 endpoint). ±270 route.
 
 ## 6. Alur bisnis inti
 
@@ -195,7 +195,7 @@ autentikasi) + layar operasional mobile-friendly + scan barcode.
 
 ## 22. Testing
 
-`php artisan test` — 81 test: auth/RBAC/isolasi-org, render ±70 halaman,
+`php artisan test` — 94 test: auth/RBAC/isolasi-org, render ±70 halaman,
 inventory (FEFO/rollback/duplikat/konsistensi), procurement (+RFQ/invoice),
 produksi (+MES/capacity), distribusi, BOM (explosion/siklus/versi),
 MRP (netting/explanation/to-PR), WMS (lokasi/putaway/karantina/scan),
@@ -214,7 +214,7 @@ rate-limit API, token Sanctum per-device + pencabutan.
 
 ## 24. Status: IMPLEMENTED vs ROADMAP
 
-IMPLEMENTED: semua modul §5 + engine §7–§21 + 81 test.
+IMPLEMENTED: semua modul §5 + engine §7–§21 + 94 test.
 ROADMAP (butuh sistem eksternal): payment gateway riil, SMS gateway,
 aplikasi mobile native, API v2 (flag sudah ada, nonaktif), SSO/LDAP,
 multi-database per tenant, EDI supplier.

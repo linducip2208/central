@@ -1,6 +1,9 @@
 @extends('layouts.app')
 @section('title', 'Delivery ' . $delivery->number)
 @section('subtitle', ($delivery->school->name ?? '-') . ' · rencana ' . number_format($delivery->qty_planned) . ' porsi')
+@section('actions')
+<a href="{{ route('returns.create', $delivery) }}" class="btn btn-white">Terima retur</a>
+@endsection
 @section('content')
 <div class="row g-3">
 <div class="col-lg-7">

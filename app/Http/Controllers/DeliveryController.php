@@ -10,6 +10,7 @@ use App\Models\Delivery;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
+use App\Services\PeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -36,10 +37,11 @@ class DeliveryController extends Controller
     }
 
     /** Serah terima: kurangi stok produk (FEFO) sesuai qty diterima + return. */
-    public function deliver(Request $request, Delivery $delivery, InventoryService $inventory)
+    public function deliver(Request $request, Delivery $delivery, InventoryService $inventory, PeriodService $periods)
     {
         $this->ensureOrgAccess($delivery);
         $this->ensureWarehouse((int) $request->get('warehouse_id'));
+        $periods->assertOpen($delivery->organization_id, $delivery->central_kitchen_id, now()->toDateString());
         abort_unless(in_array($delivery->status, ['PLANNED', 'IN_TRANSIT']), 422);
         $data = $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',

@@ -10,7 +10,7 @@ class School extends Model
 {
     use Auditable, SoftDeletes;
 
-    protected $fillable = ['organization_id', 'central_kitchen_id', 'npsn', 'code', 'name', 'level', 'address', 'district', 'city', 'pic_name', 'pic_phone', 'student_count', 'target_portions', 'distance_km', 'status'];
+    protected $fillable = ['organization_id', 'central_kitchen_id', 'npsn', 'code', 'name', 'level', 'address', 'district', 'city', 'pic_name', 'pic_phone', 'student_count', 'target_portions', 'distance_km', 'latitude', 'longitude', 'geofence_radius_m', 'status'];
 
     protected function casts(): array
     {

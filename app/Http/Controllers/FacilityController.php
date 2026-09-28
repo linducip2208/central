@@ -47,6 +47,7 @@ class FacilityController extends Controller
             'name' => 'required|string|max:255', 'city' => 'nullable|string|max:100',
             'pic_name' => 'nullable|string|max:255', 'pic_phone' => 'nullable|string|max:30',
             'daily_capacity' => 'nullable|integer|min:0',
+            'latitude' => 'nullable|numeric|between:-90,90', 'longitude' => 'nullable|numeric|between:-180,180',
         ]);
         $data['organization_id'] = $request->user()->organization_id;
         $data['code'] = 'CK-'.now()->format('ymd').'-'.strtoupper(substr(uniqid(), -4));
