@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use App\Services\PeriodService;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -112,6 +113,28 @@ class DeliveryController extends Controller
         return back()->with('success', 'Serah terima tersimpan, stok berkurang.');
     }
 
+    /** Picking: reservasi seluruh item delivery (alokasi tanpa mutasi fisik). */
+    public function pick(Request $request, Delivery $delivery, InventoryService $inventory)
+    {
+        $this->ensureOrgAccess($delivery);
+        $request->validate(['warehouse_id' => 'required|exists:warehouses,id']);
+        $this->ensureWarehouse((int) $request->warehouse_id);
+        abort_unless(in_array($delivery->status, ['PLANNED', 'IN_TRANSIT']), 422);
+        $delivery->load('items');
+        try {
+            foreach ($delivery->items as $item) {
+                $need = max(0, (int) $item->qty_planned - (int) $item->qty_delivered);
+                if ($need > 0) {
+                    $inventory->reserve((int) $request->warehouse_id, 'product', $item->product_id, $need);
+                }
+            }
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Picking gagal: '.$e->getMessage());
+        }
+
+        return back()->with('success', 'Picking selesai — stok dialokasikan (reserved).');
+    }
+
     public function fail(Request $request, Delivery $delivery)
     {
         $this->ensureOrgAccess($delivery);
@@ -119,6 +142,7 @@ class DeliveryController extends Controller
         abort_unless(in_array($delivery->status, ['PLANNED', 'IN_TRANSIT']), 422);
         $delivery->update(['status' => 'FAILED', 'notes' => $request->notes]);
         $delivery->trackings()->create(['status' => 'FAILED', 'notes' => $request->notes, 'created_by' => $request->user()->id]);
+        app(WebhookService::class)->dispatch('delivery.failed', ['number' => $delivery->number, 'reason' => $request->notes], $delivery->organization_id);
 
         return back()->with('success', 'Delivery ditandai gagal.');
     }

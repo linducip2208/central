@@ -2,6 +2,7 @@
 @section('title', 'BOM ' . $bom->code)
 @section('subtitle', ($bom->version ? 'v'.$bom->version.' · ' : '') . 'yield ' . $bom->yield_qty . ' · berlaku ' . ($bom->effective_from ?? '-'))
 @section('actions')
+<form method="POST" action="{{ route('boms.clone', $bom) }}" class="d-inline">@csrf<button class="btn btn-white" type="submit">Clone revisi</button></form>
 @if($bom->status === 'DRAFT')
 <form method="POST" action="{{ route('boms.approve', $bom) }}" class="d-inline">@csrf<button class="btn btn-success" type="submit">Aktifkan</button></form>
 <form method="POST" action="{{ route('boms.destroy', $bom) }}" class="d-inline" onsubmit="return confirm('Hapus BOM?')">@csrf @method('DELETE')<button class="btn btn-ghost-danger" type="submit">Hapus</button></form>

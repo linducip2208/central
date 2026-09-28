@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Api\V1\DeliveryResource;
 use App\Models\Delivery;
 use App\Services\GeofenceService;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class DeliveryController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->latest()->paginate(20);
 
-        return response()->json($deliveries);
+        return DeliveryResource::collection($deliveries);
     }
 
     public function show(Request $request, Delivery $delivery)
@@ -26,7 +27,7 @@ class DeliveryController extends Controller
         abort_unless((int) $delivery->organization_id === (int) $request->user()->organization_id, 403);
         $delivery->load(['items.product', 'school', 'trackings']);
 
-        return response()->json($delivery);
+        return new DeliveryResource($delivery);
     }
 
     /** Update posisi/status oleh kurir (tanpa mutasi stok — mutasi tetap via web serah terima). */

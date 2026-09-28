@@ -43,8 +43,17 @@
 </dl>
 <a href="{{ route('trace.batch', $batch) }}" class="btn btn-primary">Genealogy lengkap</a>
 </div></div>
+@elseif($result['type'] === 'item')
+<div class="card"><div class="card-header"><h3 class="card-title">{{ $result['item']->name }} <span class="badge bg-blue-lt ms-1">{{ $result['item_type'] }}</span></h3></div>
+<div class="table-responsive"><table class="table table-vcenter card-table">
+<thead><tr><th>Gudang</th><th>Batch</th><th class="text-end">Qty</th></tr></thead>
+<tbody>
+@forelse($result['stocks'] as $s)
+<tr><td>{{ $s->warehouse->name ?? '' }}</td><td>{{ $s->batch->batch_no ?? '-' }}</td><td class="text-end">{{ number_format($s->qty, 2) }}</td></tr>
+@empty<tr><td colspan="3" class="text-center text-secondary py-3">Tidak ada stok.</td></tr>@endforelse
+</tbody></table></div></div>
 @else
-<div class="alert alert-warning">Kode tidak ditemukan sebagai bin maupun batch.</div>
+<div class="alert alert-warning">Kode tidak ditemukan sebagai bin, batch, maupun barcode item.</div>
 @endif
 @endif
 </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Core\Services\HealthService;
 use App\Core\Services\SettingService;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\AuditLog;
@@ -9,8 +10,10 @@ use App\Models\CentralKitchen;
 use App\Models\KitchenBudget;
 use App\Models\PeriodClosing;
 use App\Models\User;
+use App\Models\WebhookDelivery;
 use App\Services\PeriodService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -163,6 +166,25 @@ class AdminController extends Controller
         );
 
         return back()->with('success', 'Budget tersimpan.');
+    }
+
+    // ---- Health ----
+    public function health(HealthService $health)
+    {
+        $checks = $health->check();
+        $jobs = DB::table('jobs')->count();
+        $failed = WebhookDelivery::whereIn('status', ['PENDING', 'FAILED'])->count();
+        $schedules = [
+            ['mbg:expiry-check', 'harian 06:00'],
+            ['mbg:low-stock-check', 'per jam'],
+            ['mbg:run-scheduled-reports', '15 menit'],
+            ['mbg:escalate', '2× sehari'],
+            ['mbg:backup', 'harian 02:00'],
+            ['mbg:cleanup', 'mingguan'],
+            ['queue:work', '5 menit'],
+        ];
+
+        return view('admin.health', compact('checks', 'jobs', 'failed', 'schedules'));
     }
 
     // ---- Notifications ----

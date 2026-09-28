@@ -110,7 +110,7 @@ class RecallController extends Controller
                 }
             }
             $recall->update(['status' => 'ACTIVE', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
-            $approvals->decide($recall, 'APPROVE', 'Recall activated');
+            $approvals->decide($recall, 'APPROVE', 'Recall activated', 2);
         });
         $admins = User::where('organization_id', $recall->organization_id)->whereHas('roles', fn ($q) => $q->whereIn('name', ['super-admin', 'admin']))->get();
         app(NotificationService::class)->send($admins, 'recall_created', ['number' => $recall->number, 'reason' => $recall->reason]);

@@ -19,7 +19,9 @@
 <td class="text-end fw-bold">{{ number_format($l->net_requirement, 2) }}</td>
 <td class="text-end">{{ number_format($l->suggested_order_qty, 2) }}</td>
 <td class="text-secondary small">{{ $l->suggestedSupplier->name ?? '-' }} @if($l->suggested_price)({{ mbg_currency($l->suggested_price) }})@endif</td>
-<td>@if($l->recommendation === 'PURCHASE')<span class="badge bg-yellow-lt">BELI</span>@else<span class="badge bg-green-lt">CUKUP</span>@endif</td>
+<td>@if($l->recommendation === 'PURCHASE')<span class="badge bg-yellow-lt">BELI</span>@elseif($l->recommendation === 'TRANSFER')<span class="badge bg-blue-lt">TRANSFER</span>@elseif($l->recommendation === 'SHORTAGE')<span class="badge bg-red-lt">SHORTAGE</span>@elseif($l->recommendation === 'SURPLUS')<span class="badge bg-purple-lt">SURPLUS</span>@else<span class="badge bg-green-lt">CUKUP</span>@endif
+@if($l->transfer_from_warehouse_id)<div class="small text-secondary">dari gudang #{{ $l->transfer_from_warehouse_id }}</div>@endif
+@if($l->expiring_soon > 0)<div class="small text-yellow">~{{ number_format($l->expiring_soon, 1) }} hampir expired</div>@endif</td>
 </tr>
 @endforeach
 </tbody></table></div>

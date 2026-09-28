@@ -16,6 +16,8 @@ $cards = [
 ['Nutrisi vs Target', 'reports.nutrition', 'ti-apple', 'Capaian gizi menu vs target.', []],
 ['AP Aging', 'reports.ap-aging', 'ti-file-invoice', 'Utang supplier belum bayar per jatuh tempo.', []],
 ['Biaya Sekolah', 'reports.school-cost', 'ti-school', 'Alokasi biaya per sekolah.', ['from' => now()->subDays(30)->toDateString(), 'to' => now()->toDateString()]],
+['Harian Dapur', 'reports.daily', 'ti-calendar', 'Ringkasan operasional 1 hari + cetak.', ['date' => now()->toDateString()]],
+['Eksepsi', 'reports.exceptions', 'ti-alert-triangle', 'Semua anomali + drill-down.', []],
 ];
 @endphp
 @foreach($cards as [$title, $route, $icon, $desc, $params])

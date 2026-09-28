@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Stok Inventory')
-@section('actions')<a href="{{ route('inventory.adjust.form') }}" class="btn btn-white">Penyesuaian</a><a href="{{ route('inventory.transfer.form') }}" class="btn btn-white">Transfer</a><a href="{{ route('inventory.reserve.form') }}" class="btn btn-white">Reservasi</a><a href="{{ route('inventory.movements') }}" class="btn btn-white">Ledger mutasi</a>@endsection
+@section('actions')<a href="{{ route('inventory.adjust.form') }}" class="btn btn-white">Penyesuaian</a><a href="{{ route('inventory.transfer.form') }}" class="btn btn-white">Transfer</a><a href="{{ route('inventory.reserve.form') }}" class="btn btn-white">Reservasi</a><a href="{{ route('inventory.reconcile') }}" class="btn btn-white">Rekonsiliasi</a><a href="{{ route('inventory.movements') }}" class="btn btn-white">Ledger mutasi</a>@endsection
 @section('content')
 <div class="card"><div class="card-body">
 <form method="GET" class="row g-2 mb-3">

@@ -35,6 +35,7 @@ class ProductController extends Controller
             'unit_id' => 'required|exists:units,id',
             'portion_size_gram' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
+            'barcode' => 'nullable|string|max:60|unique:products,barcode',
         ]);
         $data['organization_id'] = $request->user()->organization_id;
         $data['code'] = 'PRD-'.now()->format('ymd').'-'.strtoupper(substr(uniqid(), -4));
@@ -70,6 +71,7 @@ class ProductController extends Controller
             'unit_id' => 'required|exists:units,id',
             'portion_size_gram' => 'nullable|integer|min:0',
             'description' => 'nullable|string',
+            'barcode' => 'nullable|string|max:60|unique:products,barcode,'.$product->id,
         ]);
         $data['is_active'] = $request->boolean('is_active', true);
         $product->update($data);

@@ -11,6 +11,7 @@ use App\Models\PurchaseRequest;
 use App\Models\Warehouse;
 use App\Services\ApprovalService;
 use App\Services\NumberService;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 
 class PurchaseRequestController extends Controller
@@ -69,6 +70,8 @@ class PurchaseRequestController extends Controller
             $pr->items()->create(['ingredient_id' => $ing->id, 'qty_requested' => $it['qty'], 'unit_id' => $ing->unit_id, 'estimated_price' => $ing->standard_price]);
         }
 
+        app(WebhookService::class)->dispatch('purchase.created', ['number' => $pr->number, 'type' => 'PR'], $pr->organization_id);
+
         return redirect()->route('purchase-requests.show', $pr)->with('success', 'PR '.$pr->number.' dibuat.');
     }
 
@@ -89,21 +92,29 @@ class PurchaseRequestController extends Controller
         return back()->with('success', 'PR disubmit untuk persetujuan.');
     }
 
-    public function approve(Request $request, PurchaseRequest $pr)
+    public function approve(Request $request, PurchaseRequest $pr, ApprovalService $approvals)
     {
         $this->ensureOrgAccess($pr);
         abort_unless($pr->status === 'SUBMITTED', 422);
         $items = $request->validate(['approved' => 'required|array', 'approved.*' => 'numeric|min:0']);
+        $amount = 0;
+        foreach ($pr->items as $item) {
+            $qty = $items['approved'][$item->id] ?? $item->qty_requested;
+            $amount += (float) $qty * (float) $item->estimated_price;
+        }
+        abort_unless($approvals->canDecide($request->user(), $pr, $amount), 403, 'Tidak memenuhi matriks persetujuan untuk nominal ini (cek peran/delegasi).');
         foreach ($pr->items as $item) {
             $item->update(['qty_approved' => $items['approved'][$item->id] ?? $item->qty_requested]);
         }
         $pr->update(['status' => 'APPROVED', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
-        app(ApprovalService::class)->decide($pr, 'APPROVE');
+        $level = $approvals->requiredRole($pr->organization_id, 'PurchaseRequest', $amount)['level'] ?? 1;
+        $approvals->decide($pr, 'APPROVE', null, $level);
         if ($pr->requester) {
             app(NotificationService::class)->send([$pr->requester], 'pr_approved', [
                 'number' => $pr->number, 'by' => $request->user()->name,
             ]);
         }
+        app(WebhookService::class)->dispatch('purchase.approved', ['number' => $pr->number, 'type' => 'PR'], $pr->organization_id);
 
         return back()->with('success', 'PR disetujui.');
     }

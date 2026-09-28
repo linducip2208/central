@@ -29,7 +29,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function seedRoles(): void
     {
-        foreach (['super-admin', 'admin', 'warehouse', 'kitchen', 'procurement', 'driver', 'school', 'viewer'] as $r) {
+        foreach (['super-admin', 'admin', 'warehouse', 'kitchen', 'procurement', 'driver', 'school', 'finance', 'qc_manager', 'planning', 'auditor', 'viewer'] as $r) {
             Role::firstOrCreate(['name' => $r, 'guard_name' => 'web']);
         }
         $perms = [
@@ -46,6 +46,7 @@ abstract class TestCase extends BaseTestCase
             'invoice.view', 'invoice.verify', 'wms.view', 'qms.view',
             'recall.view', 'recall.create', 'recall.approve',
             'tms.view', 'portal.view', 'webhook.view', 'approval.view', 'catalog.view',
+            'document.view', 'document.manage', 'automation.view', 'automation.manage', 'import.view',
         ];
         foreach ($perms as $p) {
             Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']);

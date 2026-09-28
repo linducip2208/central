@@ -2,6 +2,7 @@
 @section('title', $ingredient->name)
 @section('subtitle', $ingredient->code . ' · ' . $ingredient->category . ' · per ' . ($ingredient->unit->symbol ?? ''))
 @section('actions')
+<a href="{{ route('boms.used-in', $ingredient) }}" class="btn btn-white">Dipakai di BOM mana?</a>
 <a href="{{ route('ingredients.edit', $ingredient) }}" class="btn btn-white">Ubah</a>
 <a href="{{ route('ingredients.index') }}" class="btn btn-ghost-secondary">Kembali</a>
 @endsection

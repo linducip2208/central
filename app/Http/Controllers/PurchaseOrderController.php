@@ -14,6 +14,7 @@ use App\Models\PurchaseRequestItem;
 use App\Models\Supplier;
 use App\Services\ApprovalService;
 use App\Services\NumberService;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -98,6 +99,8 @@ class PurchaseOrderController extends Controller
             return $po;
         });
 
+        app(WebhookService::class)->dispatch('purchase.created', ['number' => $po->number, 'type' => 'PO'], $po->organization_id);
+
         return redirect()->route('purchase-orders.show', $po)->with('success', 'PO '.$po->number.' dibuat.');
     }
 
@@ -118,13 +121,16 @@ class PurchaseOrderController extends Controller
         return back()->with('success', 'PO disubmit.');
     }
 
-    public function approve(PurchaseOrder $po)
+    public function approve(PurchaseOrder $po, ApprovalService $approvals)
     {
         $this->ensureOrgAccess($po);
         abort_unless($po->status === 'SUBMITTED', 422);
+        abort_unless($approvals->canDecide(request()->user(), $po, (float) $po->grand_total), 403, 'Tidak memenuhi matriks persetujuan untuk nominal ini (cek peran/delegasi).');
         $po->update(['status' => 'APPROVED', 'approved_by' => request()->user()->id, 'approved_at' => now()]);
-        app(ApprovalService::class)->decide($po, 'APPROVE');
+        $level = $approvals->requiredRole($po->organization_id, 'PurchaseOrder', (float) $po->grand_total)['level'] ?? 1;
+        $approvals->decide($po, 'APPROVE', null, $level);
         app(NotificationService::class)->sendPurchaseApproved($po->id);
+        app(WebhookService::class)->dispatch('purchase.approved', ['number' => $po->number, 'type' => 'PO'], $po->organization_id);
         $warning = $this->budgetWarning($po);
 
         return back()->with('success', 'PO disetujui. Barang dapat diterima via Goods Receipt.'.$warning);

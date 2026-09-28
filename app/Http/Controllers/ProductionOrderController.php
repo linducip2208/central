@@ -15,6 +15,7 @@ use App\Models\WorkCenter;
 use App\Services\CostingService;
 use App\Services\InventoryService;
 use App\Services\PeriodService;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -34,7 +35,7 @@ class ProductionOrderController extends Controller
     public function show(ProductionOrder $order, InventoryService $inventory)
     {
         $this->ensureOrgAccess($order);
-        $order->load(['items.ingredient.unit', 'items.ingredient.approvedSubstitutes.substitute', 'product.unit', 'recipe', 'kitchenUnit', 'workCenter', 'operators.user']);
+        $order->load(['items.ingredient.unit', 'items.ingredient.approvedSubstitutes.substitute', 'product.unit', 'recipe', 'kitchenUnit', 'workCenter', 'shift', 'operators.user']);
         $warehouses = Warehouse::where('central_kitchen_id', $order->central_kitchen_id)->get();
         $workCenters = WorkCenter::where('central_kitchen_id', $order->central_kitchen_id)->active()->get();
         $staff = User::where('organization_id', $order->organization_id)->active()->orderBy('name')->take(100)->get();
@@ -125,6 +126,7 @@ class ProductionOrderController extends Controller
         $this->ensureOrgAccess($order);
         abort_unless(in_array($order->status, ['RELEASED', 'PARTIAL']), 422);
         $order->update(['status' => 'IN_PROGRESS', 'started_at' => $order->started_at ?? now()]);
+        app(WebhookService::class)->dispatch('production.started', ['number' => $order->number], $order->organization_id);
 
         return back()->with('success', 'Produksi dimulai.');
     }
@@ -176,6 +178,8 @@ class ProductionOrderController extends Controller
             'warehouse_id' => 'required|exists:warehouses,id',
             'produced_qty' => 'required|numeric|min:0',
             'rejected_qty' => 'nullable|numeric|min:0',
+            'rework_qty' => 'nullable|numeric|min:0',
+            'shift_id' => 'nullable|exists:shifts,id',
             'expiry_date' => 'nullable|date|after:today',
             'labor_cost' => 'nullable|numeric|min:0',
             'overhead_cost' => 'nullable|numeric|min:0',
@@ -200,6 +204,8 @@ class ProductionOrderController extends Controller
                 $order->update([
                     'produced_qty' => DB::raw('produced_qty + '.$produced),
                     'rejected_qty' => DB::raw('rejected_qty + '.((float) ($data['rejected_qty'] ?? 0))),
+                    'rework_qty' => DB::raw('rework_qty + '.((float) ($data['rework_qty'] ?? 0))),
+                    'shift_id' => $data['shift_id'] ?? $order->shift_id,
                     'status' => ((float) $order->produced_qty + $produced) >= ((float) $order->planned_qty) ? 'COMPLETED' : 'PARTIAL',
                     'completed_at' => now(),
                 ]);

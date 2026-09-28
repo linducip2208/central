@@ -32,4 +32,34 @@
 @endforelse
 </tbody></table></div>
 </div></div>
+
+<div class="row g-3 mt-1">
+<div class="col-lg-4">
+<div class="card"><div class="card-header"><h3 class="card-title">Operasional hari ini</h3></div>
+<div class="list-group list-group-flush">
+<div class="list-group-item d-flex justify-content-between"><span>Produksi (porsi)</span><strong>{{ number_format($tower['production_today']) }}</strong></div>
+<div class="list-group-item d-flex justify-content-between"><span>WO menunggu</span><a href="{{ route('production-orders.index') }}?status=PLANNED">{{ $tower['pending_production'] }}</a></div>
+<div class="list-group-item d-flex justify-content-between"><span>Bahan risiko stok</span><a href="{{ route('reports.intelligence') }}">{{ $tower['stock_risk'] }}</a></div>
+<div class="list-group-item d-flex justify-content-between"><span>Batch risiko expired</span><a href="{{ route('reports.expiry', ['days' => 14]) }}">{{ $tower['expiry_risk'] }}</a></div>
+<div class="list-group-item d-flex justify-content-between"><span>PO menunggu</span><a href="{{ route('purchase-orders.index') }}?status=SUBMITTED">{{ $tower['procurement_pending'] }}</a></div>
+<div class="list-group-item d-flex justify-content-between"><span>Rugi waste hari ini</span><span class="text-red">{{ mbg_currency($tower['waste_today']) }}</span></div>
+</div></div>
+</div>
+<div class="col-lg-4">
+<div class="card"><div class="card-header"><h3 class="card-title text-red">Perlu perhatian</h3></div>
+<div class="list-group list-group-flush">
+<div class="list-group-item"><div class="fw-bold">Terlambat ({{ $lateDeliveries->count() }})</div>@foreach($lateDeliveries as $d)<div class="small"><a href="{{ route('deliveries.show', $d) }}">{{ $d->number }}</a> · {{ $d->school->name ?? '' }}</div>@endforeach</div>
+<div class="list-group-item"><div class="fw-bold">Gagal ({{ $failedDeliveries->count() }})</div>@foreach($failedDeliveries as $d)<div class="small"><a href="{{ route('deliveries.show', $d) }}">{{ $d->number }}</a> · {{ $d->school->name ?? '' }}</div>@endforeach</div>
+<div class="list-group-item"><div class="fw-bold">NCR terbuka ({{ $openNcrs->count() }})</div>@foreach($openNcrs as $n)<div class="small"><a href="{{ route('ncrs.show', $n) }}">{{ $n->number }}</a> · {{ $n->severity }}</div>@endforeach</div>
+<div class="list-group-item"><div class="fw-bold">CAPA overdue ({{ $overdueCapas->count() }})</div>@foreach($overdueCapas as $c)<div class="small">{{ $c->action }} ({{ $c->due_date }})</div>@endforeach</div>
+</div></div>
+</div>
+<div class="col-lg-4">
+<div class="card"><div class="card-header"><h3 class="card-title">Pengadaan & keluhan</h3></div>
+<div class="list-group list-group-flush">
+<div class="list-group-item"><div class="fw-bold">PO menunggu ({{ $pendingPos->count() }})</div>@foreach($pendingPos as $p)<div class="small"><a href="{{ route('purchase-orders.show', $p) }}">{{ $p->number }}</a> · {{ $p->supplier->name ?? '' }}</div>@endforeach</div>
+<div class="list-group-item"><div class="fw-bold">Keluhan terbaru ({{ $recentComplaints->count() }})</div>@foreach($recentComplaints as $c)<div class="small">{{ $c->school->name ?? '' }}: {{ \Illuminate\Support\Str::limit($c->complaint, 60) }}</div>@endforeach</div>
+</div></div>
+</div>
+</div>
 @endsection

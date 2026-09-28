@@ -4,6 +4,7 @@
 @section('content')
 <div class="card mb-3"><div class="card-body">
 <form method="GET" class="row g-2">
+<div class="col-md-2"><select name="preset" class="form-select" onchange="this.form.submit()">@foreach(['custom' => 'Kustom', 'today' => 'Hari ini', 'yesterday' => 'Kemarin', 'week' => 'Minggu ini', 'month' => 'Bulan ini', 'quarter' => 'Kuartal', 'year' => 'Tahun ini'] as $k => $v)<option value="{{ $k }}" @selected(request('preset', 'custom') === $k)>{{ $v }}</option>@endforeach</select></div>
 <div class="col-md-3"><input name="from" type="date" class="form-control" value="{{ $from }}"/></div>
 <div class="col-md-3"><input name="to" type="date" class="form-control" value="{{ $to }}"/></div>
 <div class="col-md-auto"><button class="btn btn-white" type="submit">Tampilkan</button></div>
@@ -22,17 +23,20 @@
 
 <div class="row row-deck row-cards mb-3">
 @foreach([
-['Belanja pengadaan', mbg_currency($kpi['procurement']), 'ti-shopping-cart', 'green'],
-['Porsi diproduksi', number_format($kpi['portions']), 'ti-chef-hat', 'green'],
-['Service level', $kpi['service_level'].'%', 'ti-truck', $kpi['service_level'] >= 95 ? 'green' : 'yellow'],
-['Rugi waste', mbg_currency($kpi['waste_loss']), 'ti-trash', 'red'],
-['Biaya/porsi', mbg_currency($kpi['cost_per_portion']), 'ti-coins', 'blue'],
-['QC fail rate', $kpi['qc_fail_rate'].'%', 'ti-flask', $kpi['qc_fail_rate'] > 5 ? 'red' : 'green'],
-['Sekolah dilayani', number_format($kpi['schools_served']), 'ti-school', 'purple'],
-] as [$label, $val, $icon, $color])
+['Belanja pengadaan', mbg_currency($kpi['procurement']), 'ti-shopping-cart', 'green', 'procurement_spend'],
+['Porsi diproduksi', number_format($kpi['portions']), 'ti-chef-hat', 'green', 'portions'],
+['Service level', $kpi['service_level'].'%', 'ti-truck', $kpi['service_level'] >= 95 ? 'green' : 'yellow', 'service_level'],
+['Rugi waste', mbg_currency($kpi['waste_loss']), 'ti-trash', 'red', 'waste_loss'],
+['Biaya/porsi', mbg_currency($kpi['cost_per_portion']), 'ti-coins', 'blue', 'cost_per_portion'],
+['QC fail rate', $kpi['qc_fail_rate'].'%', 'ti-flask', $kpi['qc_fail_rate'] > 5 ? 'red' : 'green', 'qc_fail_rate'],
+['Sekolah dilayani', number_format($kpi['schools_served']), 'ti-school', 'purple', null],
+] as [$label, $val, $icon, $color, $key])
+@php $delta = $key ? ($compared[$key]['delta'] ?? 0) : 0; @endphp
 <div class="col-sm-6 col-lg-3"><div class="card"><div class="card-body">
-<div class="d-flex align-items-center"><span class="avatar bg-{{ $color }}-lt me-3"><i class="ti {{ $icon }}"></i></span>
-<div><div class="text-secondary">{{ $label }}</div><div class="h2 mb-0">{{ $val }}</div></div></div>
+<div class="d-flex align-items-center"><span class="avatar bg-{{ $color }}-lt me-2"><i class="ti {{ $icon }}"></i></span>
+<div><div class="text-secondary">{{ $label }}</div><div class="h2 mb-0">{{ $val }}</div>
+@if($key)<div class="small {{ $delta == 0 ? 'text-secondary' : ($delta > 0 ? 'text-green' : 'text-red') }}">{{ $delta > 0 ? '▲' : ($delta < 0 ? '▼' : '●') }} {{ $delta }} vs periode lalu</div>@endif
+</div></div>
 </div></div></div>
 @endforeach
 </div>

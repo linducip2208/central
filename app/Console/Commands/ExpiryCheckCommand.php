@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Core\Services\NotificationService;
 use App\Models\Batch;
+use App\Services\AutomationService;
 use Illuminate\Console\Command;
 
 class ExpiryCheckCommand extends Command
@@ -33,6 +34,7 @@ class ExpiryCheckCommand extends Command
 
         if ($soon) {
             $notifications->sendExpiryAlert($soon);
+            app(AutomationService::class)->fire('stock.expiry', ['count' => count($soon), 'message' => count($soon)." batch expired/≤{$days} hari."]);
         }
 
         $this->info("Expired ditandai: {$expired->count()} batch. Mendekati expired (≤{$days} hari): ".count($soon).' batch.');

@@ -22,6 +22,7 @@
 <div class="container-xl">
 <div class="row g-2 align-items-center">
 <div class="col">
+<div class="mb-1 small text-secondary"><a href="{{ route('dashboard') }}" class="text-secondary text-decoration-none">Dashboard</a> @yield('breadcrumbs')</div>
 <h2 class="page-title">@yield('title', 'Dashboard')</h2>
 <div class="text-secondary mt-1">@yield('subtitle', '')</div>
 </div>
@@ -61,6 +62,7 @@
 </footer>
 </div>
 </div>
+@yield('modal')
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.3.2/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>

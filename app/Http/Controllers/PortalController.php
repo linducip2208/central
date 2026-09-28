@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Models\Delivery;
 use App\Models\School;
 use App\Models\SchoolConfirmation;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 
 class PortalController extends Controller
@@ -65,6 +66,9 @@ class PortalController extends Controller
                 'confirmed_by' => $request->user()->id,
             ]
         );
+        if (! empty($data['complaint'])) {
+            app(WebhookService::class)->dispatch('complaint.created', ['delivery' => $delivery->number, 'school' => $delivery->school->name ?? ''], $delivery->organization_id);
+        }
 
         return back()->with('success', 'Konfirmasi tersimpan. Terima kasih.');
     }

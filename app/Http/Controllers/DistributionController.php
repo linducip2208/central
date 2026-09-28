@@ -11,6 +11,7 @@ use App\Models\Packaging;
 use App\Models\Product;
 use App\Models\School;
 use App\Services\NumberService;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -117,6 +118,7 @@ class DistributionController extends Controller
                 if ($d->status === 'PLANNED') {
                     $d->update(['status' => 'IN_TRANSIT', 'dispatched_at' => now()]);
                     $d->trackings()->create(['status' => 'IN_TRANSIT', 'notes' => 'Armada berangkat']);
+                    app(WebhookService::class)->dispatch('delivery.dispatched', ['number' => $d->number, 'school' => $d->school->name ?? ''], $d->organization_id);
                 }
             }
         });

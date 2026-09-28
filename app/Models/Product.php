@@ -12,7 +12,7 @@ class Product extends Model
 
     public const ITEM_TYPE = 'product';
 
-    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'category', 'unit_id', 'standard_cost', 'portion_size_gram', 'description', 'is_active'];
+    protected $fillable = ['organization_id', 'code', 'name', 'slug', 'category', 'unit_id', 'standard_cost', 'portion_size_gram', 'description', 'is_active', 'barcode'];
 
     protected function casts(): array
     {

@@ -6,39 +6,25 @@ use App\Models\Costing;
 use App\Models\Delivery;
 use App\Models\InventoryMovement;
 use App\Models\ProductionOrder;
-use App\Models\PurchaseOrder;
-use App\Models\QualityInspection;
 use App\Models\School;
 use App\Models\Waste;
 use App\Services\AiAdvisorInterface;
-use App\Services\ForecastService;
+use App\Services\KpiService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AnalyticsController extends Controller
 {
-    public function executive(Request $request, ForecastService $forecast, AiAdvisorInterface $advisor)
+    public function executive(Request $request, KpiService $kpiService, AiAdvisorInterface $advisor)
     {
         $orgId = $request->user()->organization_id;
         $kitchenId = $request->user()->central_kitchen_id;
-        $from = $request->get('from', now()->subDays(30)->toDateString());
-        $to = $request->get('to', now()->toDateString());
-
-        $kpi = [
-            'procurement' => (float) PurchaseOrder::where('organization_id', $orgId)->whereBetween('order_date', [$from, $to])->whereNotIn('status', ['DRAFT', 'REJECTED', 'CANCELLED'])->sum('grand_total'),
-            'portions' => (int) ProductionOrder::where('organization_id', $orgId)->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))->whereBetween('production_date', [$from, $to])->sum('produced_qty'),
-            'delivered' => (int) Delivery::where('organization_id', $orgId)->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))->whereBetween('delivery_date', [$from, $to])->sum('qty_delivered'),
-            'planned_delivery' => (int) Delivery::where('organization_id', $orgId)->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))->whereBetween('delivery_date', [$from, $to])->sum('qty_planned'),
-            'waste_loss' => (float) Waste::where('organization_id', $orgId)->whereBetween('waste_date', [$from, $to])->sum('cost_loss'),
-            'production_cost' => (float) Costing::where('organization_id', $orgId)->whereBetween('costing_date', [$from, $to])->sum('total_cost'),
-            'qc_fail_rate' => 0,
-            'schools_served' => School::where('organization_id', $orgId)->active()->count(),
-        ];
-        $qcTotal = QualityInspection::where('organization_id', $orgId)->whereBetween('inspection_date', [$from, $to])->count();
-        $qcFail = QualityInspection::where('organization_id', $orgId)->whereBetween('inspection_date', [$from, $to])->where('result', 'FAILED')->count();
-        $kpi['qc_fail_rate'] = $qcTotal > 0 ? round($qcFail / $qcTotal * 100, 1) : 0;
-        $kpi['service_level'] = $kpi['planned_delivery'] > 0 ? round($kpi['delivered'] / $kpi['planned_delivery'] * 100, 1) : 0;
-        $kpi['cost_per_portion'] = $kpi['portions'] > 0 ? round(($kpi['production_cost'] + $kpi['waste_loss']) / $kpi['portions'], 2) : 0;
+        [$from, $to] = $kpiService->period($request->get('preset', 'custom'), $request->get('from', now()->subDays(30)->toDateString()), $request->get('to', now()->toDateString()));
+        $compared = $kpiService->compare($orgId, $kitchenId, $from, $to);
+        $kpi = array_map(fn ($r) => $r['value'], $compared);
+        $kpi['procurement'] = $kpi['procurement_spend'];
+        $kpi['production_cost'] = $kpi['production_cost'] ?? 0;
+        $kpi['schools_served'] = School::where('organization_id', $orgId)->active()->count();
 
         $trend = ProductionOrder::where('organization_id', $orgId)->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
             ->whereBetween('production_date', [$from, $to])
@@ -52,7 +38,7 @@ class AnalyticsController extends Controller
             'waste' => $advisor->wasteAnalysis((int) ($kitchenId ?? 0))->toArray(),
         ];
 
-        return view('analytics.executive', compact('kpi', 'trend', 'wasteByReason', 'advisories', 'from', 'to'));
+        return view('analytics.executive', compact('kpi', 'compared', 'trend', 'wasteByReason', 'advisories', 'from', 'to'));
     }
 
     /** Export CSV generik (hindari dependensi spreadsheet; Excel-compatible). */

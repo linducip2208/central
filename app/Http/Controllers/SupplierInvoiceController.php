@@ -10,7 +10,9 @@ use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierInvoice;
 use App\Services\ApprovalService;
+use App\Services\AutomationService;
 use App\Services\NumberService;
+use App\Services\WebhookService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -85,12 +87,17 @@ class SupplierInvoiceController extends Controller
                 }
                 $invoice->update(['subtotal' => $subtotal, 'grand_total' => $subtotal + (float) $invoice->tax_amount]);
                 $this->threeWayMatch($invoice);
+                if ($invoice->fresh()->match_status === 'VARIANCE') {
+                    app(AutomationService::class)->fire('invoice.variance', ['organization_id' => $invoice->organization_id, 'number' => $invoice->number, 'message' => "Invoice {$invoice->number} variansi (3-way match)."]);
+                }
 
                 return $invoice;
             });
         } catch (UniqueConstraintViolationException $e) {
             return back()->withInput()->with('error', 'Nomor invoice supplier ini sudah pernah dicatat (duplikat ditolak).');
         }
+
+        app(WebhookService::class)->dispatch('invoice.created', ['number' => $invoice->number, 'total' => (float) $invoice->grand_total], $invoice->organization_id);
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice dicatat + 3-way matching dijalankan.');
     }
@@ -107,11 +114,13 @@ class SupplierInvoiceController extends Controller
     {
         $this->ensureOrgAccess($invoice);
         abort_unless($invoice->status === 'DRAFT', 422);
+        abort_unless($approvals->canDecide($request->user(), $invoice, (float) $invoice->grand_total), 403, 'Tidak memenuhi matriks persetujuan untuk nominal ini.');
         $this->threeWayMatch($invoice->fresh());
         $invoice->refresh();
         abort_unless($invoice->isMatched(), 422, 'Masih ada variansi — selesaikan selisih sebelum verifikasi.');
         $invoice->update(['status' => 'VERIFIED', 'verified_by' => $request->user()->id]);
-        $approvals->decide($invoice, 'APPROVE', 'Verifikasi 3-way match');
+        $level = $approvals->requiredRole($invoice->organization_id, 'SupplierInvoice', (float) $invoice->grand_total)['level'] ?? 1;
+        $approvals->decide($invoice, 'APPROVE', 'Verifikasi 3-way match', $level);
         $invoice->purchaseOrder?->update(['invoice_status' => 'BILLED']);
 
         return back()->with('success', 'Invoice terverifikasi.');
@@ -143,10 +152,15 @@ class SupplierInvoiceController extends Controller
             $qtyVar += (float) $item->qty - $grQty;
             $priceVar += ((float) $item->qty * (float) $item->unit_price) - ($grQty * $poPrice);
         }
-        $matched = abs($qtyVar) < 0.001 && abs($priceVar) < 0.01;
+        $ppn = (float) setting('tax.ppn_pct', 11);
+        $expectedTax = round($invoice->subtotal * $ppn / 100, 2);
+        // Pajak 0 = belum termasuk pajak (bukan variansi); variansi hanya bila tagihan mencantumkan pajak yang menyimpang.
+        $taxVar = (float) $invoice->tax_amount > 0 ? (float) $invoice->tax_amount - $expectedTax : 0;
+        $matched = abs($qtyVar) < 0.001 && abs($priceVar) < 0.01 && abs($taxVar) < 1;
         $invoice->update([
             'qty_variance' => $qtyVar, 'price_variance' => $priceVar,
             'match_status' => $matched ? 'MATCHED' : 'VARIANCE',
+            'notes' => trim(($invoice->notes ? $invoice->notes.' | ' : '').(abs($taxVar) >= 1 ? 'Pajak tagih '.mbg_currency((float) $invoice->tax_amount)." vs ekspektasi PPN {$ppn}% = ".mbg_currency($expectedTax) : '')) ?: null,
         ]);
     }
 }

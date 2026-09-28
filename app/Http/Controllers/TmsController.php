@@ -4,12 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
+use App\Models\CapaAction;
 use App\Models\Delivery;
 use App\Models\DeliveryRoute;
 use App\Models\DeliveryRouteStop;
+use App\Models\NonConformance;
+use App\Models\PurchaseOrder;
 use App\Models\School;
+use App\Models\SchoolConfirmation;
 use App\Models\Vehicle;
 use App\Services\GeofenceService;
+use App\Services\KpiService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -140,21 +145,21 @@ class TmsController extends Controller
         return back()->with('success', "Rute diterapkan ke {$count} delivery (kendaraan, kurir, urutan, ETA).");
     }
 
-    /** Delivery Control Tower. */
-    public function controlTower(Request $request)
+    /** Central Control Tower: delivery + produksi + stok + QC + supplier + biaya. */
+    public function controlTower(Request $request, KpiService $kpi)
     {
-        $query = Delivery::with(['school', 'vehicle', 'courier', 'route'])->where('organization_id', $request->user()->organization_id);
+        $orgId = $request->user()->organization_id;
+        $kitchenId = $request->user()->central_kitchen_id;
+        $date = $request->get('date', today()->toDateString());
+
+        $query = Delivery::with(['school', 'vehicle', 'courier', 'route'])->where('organization_id', $orgId);
         $this->scopeKitchen($request, $query);
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         } else {
             $query->whereIn('status', ['PLANNED', 'IN_TRANSIT', 'PARTIAL']);
         }
-        if ($request->filled('date')) {
-            $query->whereDate('delivery_date', $request->date);
-        } else {
-            $query->whereDate('delivery_date', today());
-        }
+        $query->whereDate('delivery_date', $date);
         $deliveries = $query->orderBy('stop_sequence')->orderBy('eta')->get();
         $stats = [
             'total' => $deliveries->count(),
@@ -166,6 +171,25 @@ class TmsController extends Controller
             'no_pod' => $deliveries->whereNull('delivery_proof')->count(),
         ];
 
-        return view('tms.tower', compact('deliveries', 'stats'));
+        $tower = $kpi->controlTower($orgId, $kitchenId);
+        $lateDeliveries = $deliveries->filter(fn ($d) => $d->isLate())->take(10);
+        $failedDeliveries = Delivery::with(['school'])->where('organization_id', $orgId)
+            ->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
+            ->whereDate('delivery_date', $date)->where('status', 'FAILED')->take(10)->get();
+        $openNcrs = NonConformance::with(['batch'])->where('organization_id', $orgId)
+            ->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
+            ->where('status', 'OPEN')->latest()->take(10)->get();
+        $overdueCapas = CapaAction::with(['nonConformance'])->where('status', '!=', 'DONE')
+            ->whereDate('due_date', '<', $date)
+            ->whereHas('nonConformance', fn ($q) => $q->where('organization_id', $orgId))
+            ->take(10)->get();
+        $pendingPos = PurchaseOrder::with(['supplier'])->where('organization_id', $orgId)
+            ->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
+            ->whereIn('status', ['SUBMITTED', 'DRAFT'])->latest()->take(10)->get();
+        $recentComplaints = SchoolConfirmation::with(['school'])->whereNotNull('complaint')->where('complaint', '!=', '')
+            ->whereHas('school', fn ($q) => $q->where('organization_id', $orgId))
+            ->latest()->take(10)->get();
+
+        return view('tms.tower', compact('deliveries', 'stats', 'tower', 'lateDeliveries', 'failedDeliveries', 'openNcrs', 'overdueCapas', 'pendingPos', 'recentComplaints', 'date'));
     }
 }

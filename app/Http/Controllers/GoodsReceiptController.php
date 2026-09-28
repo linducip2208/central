@@ -9,6 +9,7 @@ use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\GoodsReceipt;
 use App\Models\InventoryStock;
 use App\Models\PurchaseOrder;
+use App\Models\SupplierReturn;
 use App\Models\Warehouse;
 use App\Services\InventoryService;
 use App\Services\NumberService;
@@ -135,9 +136,54 @@ class GoodsReceiptController extends Controller
     public function show(GoodsReceipt $gr)
     {
         $this->ensureOrgAccess($gr);
-        $gr->load(['items.ingredient.unit', 'purchaseOrder', 'supplier', 'warehouse', 'receiver']);
+        $gr->load(['items.ingredient.unit', 'purchaseOrder', 'supplier', 'warehouse', 'receiver', 'supplierReturns']);
 
         return view('goods-receipts.show', compact('gr'));
+    }
+
+    /** Retur ke supplier: stok OUT (RETURN) + klaim tercatat. Tidak melebihi qty terima. */
+    public function returnToSupplier(Request $request, GoodsReceipt $gr, InventoryService $inventory, NumberService $numbers)
+    {
+        $this->ensureOrgAccess($gr);
+        $data = $request->validate([
+            'goods_receipt_item_id' => 'required|exists:goods_receipt_items,id',
+            'qty' => 'required|numeric|min:0.001',
+            'reason' => 'required|string|max:60',
+        ]);
+        $item = $gr->items()->findOrFail($data['goods_receipt_item_id']);
+        $already = SupplierReturn::where('goods_receipt_id', $gr->id)->where('ingredient_id', $item->ingredient_id)->sum('qty');
+        abort_if((float) $data['qty'] > (float) $item->qty_received - (float) $already + 1e-9, 422, 'Qty retur melebihi sisa terima ('.((float) $item->qty_received - (float) $already).').');
+
+        try {
+            DB::transaction(function () use ($request, $gr, $item, $data, $inventory, $numbers) {
+                $ret = SupplierReturn::create([
+                    'organization_id' => $gr->organization_id,
+                    'central_kitchen_id' => $gr->central_kitchen_id,
+                    'warehouse_id' => $gr->warehouse_id,
+                    'goods_receipt_id' => $gr->id,
+                    'supplier_id' => $gr->supplier_id,
+                    'ingredient_id' => $item->ingredient_id,
+                    'number' => $numbers->next('SRT'),
+                    'qty' => $data['qty'],
+                    'reason' => $data['reason'],
+                    'status' => 'COMPLETED',
+                    'created_by' => $request->user()->id,
+                ]);
+                $inventory->consume($gr->warehouse_id, 'ingredient', $item->ingredient_id, (float) $data['qty'], [
+                    'organization_id' => $gr->organization_id,
+                    'movement_type' => 'RETURN',
+                    'unit_id' => $item->unit_id,
+                    'reference_type' => SupplierReturn::class,
+                    'reference_id' => $ret->id,
+                    'reference_no' => $ret->number,
+                    'notes' => 'Retur ke supplier: '.$data['reason'],
+                ]);
+            });
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Retur ke supplier tercatat, stok berkurang.');
     }
 
     /** Notifikasi bila ada bahan yang masih di bawah minimum setelah penerimaan. */

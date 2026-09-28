@@ -26,8 +26,8 @@ class Bom extends Model
         $date ??= now()->toDateString();
 
         return $q->where('status', 'ACTIVE')
-            ->where(fn ($w) => $w->whereNull('effective_from')->orWhere('effective_from', '<=', $date))
-            ->where(fn ($w) => $w->whereNull('effective_to')->orWhere('effective_to', '>=', $date));
+            ->where(fn ($w) => $w->whereNull('effective_from')->orWhereDate('effective_from', '<=', $date))
+            ->where(fn ($w) => $w->whereNull('effective_to')->orWhereDate('effective_to', '>=', $date));
     }
 
     /** BOM aktif terbaru untuk produk (version selection: effective-date + version desc). */

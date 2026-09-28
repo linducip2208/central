@@ -37,6 +37,11 @@ class GoodsReceipt extends Model
         return $this->hasMany(GoodsReceiptItem::class);
     }
 
+    public function supplierReturns()
+    {
+        return $this->hasMany(SupplierReturn::class);
+    }
+
     public function receiver()
     {
         return $this->belongsTo(User::class, 'received_by');

@@ -17,6 +17,12 @@
 </tbody></table></div></div>
 
 @if(in_array($delivery->status, ['PLANNED','IN_TRANSIT']))
+<div class="card mt-3"><div class="card-header"><h3 class="card-title">Picking (reservasi)</h3></div>
+<div class="card-body">
+<form method="POST" action="{{ route('deliveries.pick', $delivery) }}">@csrf
+<div class="input-group"><select name="warehouse_id" class="form-select">@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select><button class="btn btn-white" type="submit">Alokasikan stok</button></div>
+</form>
+</div></div>
 <div class="card mt-3"><div class="card-header"><h3 class="card-title">Serah terima (kurangi stok FEFO)</h3></div>
 <div class="card-body">
 @if($delivery->delivery_proof)

@@ -105,6 +105,7 @@ class FacilityController extends Controller
             'central_kitchen_id' => 'required|exists:central_kitchens,id',
             'name' => 'required|string|max:255',
             'warehouse_type' => 'required|in:DRY,CHILLED,FROZEN,PACKAGING',
+            'fifo_method' => 'required|in:FEFO,FIFO',
             'location' => 'nullable|string', 'pic_name' => 'nullable|string|max:255',
         ]);
         $data['code'] = 'WH-'.now()->format('ymd').'-'.strtoupper(substr(uniqid(), -4));

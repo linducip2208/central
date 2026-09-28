@@ -10,7 +10,7 @@ class ProductionOrder extends Model
 {
     use Auditable, SoftDeletes;
 
-    protected $fillable = ['organization_id', 'central_kitchen_id', 'kitchen_unit_id', 'work_center_id', 'production_plan_id', 'menu_id', 'product_id', 'recipe_id', 'number', 'production_date', 'planned_qty', 'produced_qty', 'rejected_qty', 'unit_id', 'status', 'material_status', 'started_at', 'completed_at', 'notes', 'theoretical_cost', 'created_by'];
+    protected $fillable = ['organization_id', 'central_kitchen_id', 'kitchen_unit_id', 'work_center_id', 'shift_id', 'production_plan_id', 'menu_id', 'product_id', 'recipe_id', 'number', 'production_date', 'planned_qty', 'produced_qty', 'rejected_qty', 'rework_qty', 'unit_id', 'status', 'material_status', 'started_at', 'completed_at', 'notes', 'theoretical_cost', 'created_by'];
 
     protected function casts(): array
     {
@@ -44,6 +44,11 @@ class ProductionOrder extends Model
     public function workCenter()
     {
         return $this->belongsTo(WorkCenter::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
     }
 
     public function operators()

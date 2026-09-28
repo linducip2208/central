@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Bill of Materials')
-@section('actions')<a href="{{ route('boms.create') }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>BOM</a>@endsection
+@section('actions')<a href="{{ route('boms.compare') }}" class="btn btn-white">Banding + simulasi</a><a href="{{ route('boms.create') }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>BOM</a>@endsection
 @section('content')
 <div class="card"><div class="card-body">
 <x-filter :statuses="['DRAFT','ACTIVE','ARCHIVED']"/>

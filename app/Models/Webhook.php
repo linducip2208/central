@@ -8,8 +8,10 @@ class Webhook extends Model
 {
     public const EVENTS = [
         'stock.updated', 'purchase.created', 'purchase.approved', 'goods.received',
-        'production.created', 'production.completed', 'qc.failed', 'delivery.dispatched',
-        'delivery.completed', 'recall.created',
+        'production.created', 'production.started', 'production.completed', 'qc.failed',
+        'batch.quarantined', 'batch.released', 'delivery.dispatched',
+        'delivery.completed', 'delivery.failed', 'complaint.created', 'invoice.created',
+        'recall.created', 'automation.fired',
     ];
 
     protected $fillable = ['organization_id', 'name', 'url', 'events', 'secret', 'is_active'];

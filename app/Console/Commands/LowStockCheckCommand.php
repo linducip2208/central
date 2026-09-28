@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Core\Services\NotificationService;
 use App\Models\Ingredient;
 use App\Models\InventoryStock;
+use App\Services\AutomationService;
 use Illuminate\Console\Command;
 
 class LowStockCheckCommand extends Command
@@ -27,6 +28,7 @@ class LowStockCheckCommand extends Command
 
         if ($low) {
             $notifications->sendLowStockAlert($low);
+            app(AutomationService::class)->fire('stock.low', ['count' => count($low), 'message' => count($low).' bahan di bawah minimum.']);
         }
 
         $this->info('Bahan di bawah minimum: '.count($low).' item.');

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Bom;
+use App\Models\BomItem;
 use App\Models\Ingredient;
+use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\Unit;
 use App\Services\ApprovalService;
@@ -117,5 +119,85 @@ class BomController extends Controller
         $bom->delete();
 
         return redirect()->route('boms.index')->with('success', 'BOM dihapus.');
+    }
+
+    /** Reverse BOM: BOM apa saja yang memakai ingredient ini. */
+    public function usedIn(Request $request, Ingredient $ingredient, BomService $bomService)
+    {
+        $rows = BomItem::with(['bom'])
+            ->where('component_type', 'ingredient')
+            ->where('component_id', $ingredient->id)
+            ->whereHas('bom', fn ($q) => $q->where('organization_id', $request->user()->organization_id))
+            ->get();
+
+        return view('boms.used-in', compact('ingredient', 'rows'));
+    }
+
+    /** Clone sebagai revisi DRAFT baru (versi +0.1). */
+    public function clone(Bom $bom)
+    {
+        $this->ensureOrgAccess($bom);
+        $copy = $bom->replicate(['code']);
+        $copy->code = app(NumberService::class)->next('BOM');
+        $copy->version = $this->bumpVersion($bom->version);
+        $copy->status = 'DRAFT';
+        $copy->approved_by = null;
+        $copy->approved_at = null;
+        $copy->save();
+        foreach ($bom->items as $item) {
+            $copy->items()->create($item->only(['parent_bom_item_id', 'component_type', 'component_id', 'qty', 'unit_id', 'scrap_pct', 'waste_pct', 'level', 'sort_order', 'notes']));
+        }
+
+        return redirect()->route('boms.show', $copy)->with('success', "BOM di-clone sebagai revisi {$copy->version}.");
+    }
+
+    protected function bumpVersion(string $version): string
+    {
+        $parts = explode('.', $version);
+        $parts[count($parts) - 1] = ((int) end($parts)) + 1;
+
+        return implode('.', $parts);
+    }
+
+    /** Bandingkan dua BOM + simulasi kebutuhan + cek ketersediaan (tanpa transaksi). */
+    public function compare(Request $request, BomService $bomService)
+    {
+        $boms = Bom::where('organization_id', $request->user()->organization_id)->latest()->take(50)->get();
+        if (! $request->filled(['a_id', 'b_id'])) {
+            return view('boms.compare', compact('boms'));
+        }
+        $request->validate(['a_id' => 'required|exists:boms,id', 'b_id' => 'required|exists:boms,id|different:a_id', 'qty' => 'nullable|numeric|min:0.01']);
+        $a = Bom::with(['items'])->findOrFail($request->a_id);
+        $b = Bom::with(['items'])->findOrFail($request->b_id);
+        $this->ensureOrgAccess($a);
+        $this->ensureOrgAccess($b);
+        $qty = (float) ($request->qty ?? 100);
+        $expA = $this->safeExplode($bomService, (int) $a->item_id, $qty);
+        $expB = $this->safeExplode($bomService, (int) $b->item_id, $qty);
+
+        // Simulasi ketersediaan: bandingkan kebutuhan vs stok semua gudang org.
+        $simulate = [];
+        foreach (['A' => $expA, 'B' => $expB] as $label => $needs) {
+            foreach ($needs as $need) {
+                $ing = Ingredient::find($need['ingredient_id']);
+                if (! $ing) {
+                    continue;
+                }
+                $stock = InventoryStock::where('item_type', 'ingredient')->where('item_id', $ing->id)
+                    ->whereHas('warehouse.centralKitchen', fn ($q) => $q->where('organization_id', $a->organization_id))->sum('qty');
+                $simulate[$label][$ing->id] = ['name' => $ing->name, 'need' => $need['qty'], 'stock' => (float) $stock, 'short' => max(0, $need['qty'] - (float) $stock)];
+            }
+        }
+
+        return view('boms.compare', compact('a', 'b', 'qty', 'expA', 'expB', 'simulate', 'boms'));
+    }
+
+    protected function safeExplode(BomService $bomService, int $productId, float $qty): array
+    {
+        try {
+            return $bomService->explode($productId, $qty);
+        } catch (\Throwable) {
+            return [];
+        }
     }
 }

@@ -51,6 +51,9 @@
 <select name="warehouse_id" class="form-select">@foreach($warehouses as $w)<option value="{{ $w->id }}">{{ $w->name }}</option>@endforeach</select></div>
 <div class="col-md-2"><label class="form-label">Hasil baik</label><input name="produced_qty" type="number" step="0.001" min="0" class="form-control" required/></div>
 <div class="col-md-2"><label class="form-label">Reject</label><input name="rejected_qty" type="number" step="0.001" min="0" value="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Rework</label><input name="rework_qty" type="number" step="0.001" min="0" value="0" class="form-control"/></div>
+<div class="col-md-2"><label class="form-label">Shift</label>
+<select name="shift_id" class="form-select"><option value="">—</option>@foreach(\App\Models\Shift::where('central_kitchen_id', $order->central_kitchen_id)->where('is_active', true)->get() as $s)<option value="{{ $s->id }}">{{ $s->name }}</option>@endforeach</select></div>
 <div class="col-md-4"><label class="form-label">Expired hasil</label><input name="expiry_date" type="date" class="form-control" value="{{ now()->addDay()->toDateString() }}"/></div>
 <div class="col-md-3"><label class="form-label">Biaya tenaga</label><input name="labor_cost" type="number" min="0" value="0" class="form-control"/></div>
 <div class="col-md-3"><label class="form-label">Biaya overhead</label><input name="overhead_cost" type="number" min="0" value="0" class="form-control"/></div>
@@ -70,8 +73,11 @@
 <dt class="col-5">Work center</dt><dd class="col-7">{{ $order->workCenter->name ?? '—' }}</dd>
 <dt class="col-5">Material</dt><dd class="col-7"><x-badge :status="$order->material_status"/></dd>
 <dt class="col-5">Biaya teoritis</dt><dd class="col-7">{{ mbg_currency($order->theoretical_cost) }}</dd>
+<dt class="col-5">Shift</dt><dd class="col-7">{{ $order->shift->name ?? '—' }}</dd>
+<dt class="col-5">Rework</dt><dd class="col-7">{{ number_format($order->rework_qty, 0) }}</dd>
+<dt class="col-5">Rencana</dt><dd class="col-7">{{ $order->production_date }}</dd>
 <dt class="col-5">Mulai</dt><dd class="col-7">{{ $order->started_at ?? '—' }}</dd>
-<dt class="col-5">Selesai</dt><dd class="col-7">{{ $order->completed_at ?? '—' }}</dd>
+<dt class="col-5">Selesai</dt><dd class="col-7">{{ $order->completed_at ?? '—' }}@if($order->started_at && $order->completed_at) ({{ $order->started_at->diffInMinutes($order->completed_at) }} mnt)@endif</dd>
 <dt class="col-5">Catatan</dt><dd class="col-7">{{ $order->notes ?? '—' }}</dd>
 </dl>
 </div></div>

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Models\Approval;
+use App\Models\ApprovalDelegation;
+use App\Models\ApprovalMatrix;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +45,52 @@ class ApprovalService
             ->where('approvable_id', $model->getKey())
             ->with(['decider', 'requester'])
             ->latest()->get();
+    }
+
+    /**
+     * Matriks persetujuan: peran yang disyaratkan untuk nominal tertentu.
+     * null = tidak ada matriks → cukup permission route.
+     */
+    public function requiredRole(int $orgId, string $type, float $amount): ?array
+    {
+        $row = ApprovalMatrix::where('organization_id', $orgId)
+            ->where('approvable_type', $type)
+            ->where('min_amount', '<=', $amount)
+            ->orderByDesc('level')->first();
+        if (! $row) {
+            return null;
+        }
+
+        return ['role' => $row->role, 'level' => (int) $row->level];
+    }
+
+    /** Cek kelayakan pemutus: bypass admin, peran matriks, atau delegasi aktif. */
+    public function canDecide(User $user, Model $model, float $amount = 0): bool
+    {
+        if ($user->hasRole(['super-admin', 'admin'])) {
+            return true;
+        }
+        $req = $this->requiredRole((int) $user->organization_id, class_basename($model), $amount);
+        if (! $req) {
+            return true;
+        }
+        if ($user->hasRole($req['role'])) {
+            return true;
+        }
+        // Delegasi: user adalah penerima delegasi aktif dari pemilik peran.
+        $delegatorIds = User::role($req['role'])->pluck('id');
+        foreach ($delegatorIds as $delegatorId) {
+            $to = ApprovalDelegation::effective()
+                ->where('organization_id', $user->organization_id)
+                ->where('delegator_id', $delegatorId)
+                ->where('delegate_id', $user->id)
+                ->exists();
+            if ($to) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function inbox(int $organizationId, int $limit = 20)

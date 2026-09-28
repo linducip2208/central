@@ -125,6 +125,35 @@ class InventoryController extends Controller
         return redirect()->route('inventory.index')->with('success', 'Transfer antar gudang berhasil (FEFO + batch baru di tujuan).');
     }
 
+    /** Rekonsiliasi: ledger vs agregat, stok vs batch, reservasi, valuasi. */
+    public function reconcile(Request $request)
+    {
+        $warehouses = Warehouse::when($request->user()->central_kitchen_id, fn ($q) => $q->where('central_kitchen_id', $request->user()->central_kitchen_id))->get();
+        $whIds = $request->filled('warehouse_id') ? [(int) $request->warehouse_id] : $warehouses->pluck('id')->toArray();
+        $checks = [];
+        $combos = InventoryStock::whereIn('warehouse_id', $whIds)->selectRaw('warehouse_id, item_type, item_id')->distinct()->get();
+        foreach ($combos as $c) {
+            $in = (float) InventoryMovement::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->where('direction', 'IN')->sum('qty');
+            $out = (float) InventoryMovement::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->where('direction', 'OUT')->sum('qty');
+            $agg = (float) InventoryStock::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->sum('qty');
+            $batchSum = (float) Batch::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->whereNotIn('status', ['DEPLETED'])->sum('remaining_qty');
+            $reserved = (float) InventoryStock::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->sum('reserved_qty');
+            $value = (float) InventoryStock::where('warehouse_id', $c->warehouse_id)->where('item_type', $c->item_type)->where('item_id', $c->item_id)->selectRaw('SUM(qty * avg_cost) as v')->value('v');
+            $name = $c->item_type === 'product' ? Product::whereKey($c->item_id)->value('name') : Ingredient::whereKey($c->item_id)->value('name');
+            $checks[] = [
+                'warehouse' => Warehouse::whereKey($c->warehouse_id)->value('name'),
+                'item' => $name ?? $c->item_type.' #'.$c->item_id,
+                'ledger' => $in - $out, 'stock' => $agg, 'batch' => $batchSum,
+                'ok_ledger' => abs(($in - $out) - $agg) < 0.01,
+                'ok_batch' => $agg >= $batchSum - 0.01, // agregat mencakup batch DEPLETED-0; batch aktif ≤ agregat
+                'reserved' => $reserved, 'ok_reserved' => $reserved <= $agg + 0.01,
+                'value' => $value,
+            ];
+        }
+
+        return view('inventory.reconcile', compact('checks', 'warehouses'));
+    }
+
     public function reserveForm(Request $request)
     {
         $warehouses = Warehouse::when($request->user()->central_kitchen_id, fn ($q) => $q->where('central_kitchen_id', $request->user()->central_kitchen_id))->get();

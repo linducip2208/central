@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\ApprovalController;
+use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\BatchController;
 use App\Http\Controllers\BomController;
 use App\Http\Controllers\CapacityController;
@@ -11,14 +12,18 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\DemandController;
 use App\Http\Controllers\DemandPlanController;
 use App\Http\Controllers\DistributionController;
+use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\ForecastController;
 use App\Http\Controllers\GoodsReceiptController;
 use App\Http\Controllers\HygieneController;
+use App\Http\Controllers\ImportController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MasterCatalogController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MrpController;
+use App\Http\Controllers\NotificationCenterController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\ProductController;
@@ -35,6 +40,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReturnController;
 use App\Http\Controllers\RfqController;
 use App\Http\Controllers\SchoolController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StockOpnameController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierInvoiceController;
@@ -140,12 +146,14 @@ Route::middleware('permission:gr.view')->group(function () {
     Route::get('/goods-receipts/create', [GoodsReceiptController::class, 'create'])->name('goods-receipts.create')->middleware('permission:gr.create');
     Route::post('/goods-receipts', [GoodsReceiptController::class, 'store'])->name('goods-receipts.store')->middleware('permission:gr.create');
     Route::get('/goods-receipts/{gr}', [GoodsReceiptController::class, 'show'])->name('goods-receipts.show');
+    Route::post('/goods-receipts/{gr}/supplier-return', [GoodsReceiptController::class, 'returnToSupplier'])->name('goods-receipts.supplier-return')->middleware('permission:gr.create');
 });
 
 // Inventory
 Route::middleware('permission:inventory.view')->group(function () {
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('/inventory/movements', [InventoryController::class, 'movements'])->name('inventory.movements');
+    Route::get('/inventory/reconcile', [InventoryController::class, 'reconcile'])->name('inventory.reconcile');
     Route::get('/inventory/adjust', [InventoryController::class, 'adjustForm'])->name('inventory.adjust.form')->middleware('permission:inventory.adjust');
     Route::post('/inventory/adjust', [InventoryController::class, 'adjust'])->name('inventory.adjust')->middleware('permission:inventory.adjust');
     Route::get('/inventory/transfer', [InventoryController::class, 'transferForm'])->name('inventory.transfer.form')->middleware('permission:inventory.adjust');
@@ -218,6 +226,7 @@ Route::middleware('permission:delivery.view')->group(function () {
     Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
     Route::get('/deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
     Route::post('/deliveries/{delivery}/deliver', [DeliveryController::class, 'deliver'])->name('deliveries.deliver')->middleware('permission:delivery.update');
+    Route::post('/deliveries/{delivery}/pick', [DeliveryController::class, 'pick'])->name('deliveries.pick')->middleware('permission:delivery.update');
     Route::post('/deliveries/{delivery}/fail', [DeliveryController::class, 'fail'])->name('deliveries.fail')->middleware('permission:delivery.update');
     Route::post('/deliveries/{delivery}/track', [DeliveryController::class, 'track'])->name('deliveries.track')->middleware('permission:delivery.update');
 });
@@ -251,6 +260,8 @@ Route::middleware('permission:report.view')->group(function () {
     Route::get('/reports/nutrition', [ReportController::class, 'nutrition'])->name('reports.nutrition');
     Route::get('/reports/ap-aging', [ReportController::class, 'apAging'])->name('reports.ap-aging');
     Route::get('/reports/school-cost', [ReportController::class, 'schoolCost'])->name('reports.school-cost');
+    Route::get('/reports/daily', [ReportController::class, 'daily'])->name('reports.daily');
+    Route::get('/reports/exceptions', [ReportController::class, 'exceptions'])->name('reports.exceptions');
 });
 
 // Notifications
@@ -273,6 +284,7 @@ Route::middleware('permission:audit.view')->group(function () {
     Route::get('/audit-logs', [AdminController::class, 'auditIndex'])->name('audit-logs.index');
 });
 Route::middleware('permission:setting.view')->group(function () {
+    Route::get('/health', [AdminController::class, 'health'])->name('health.index');
     Route::get('/settings', [AdminController::class, 'settingIndex'])->name('settings.index');
     Route::post('/settings', [AdminController::class, 'settingStore'])->name('settings.store');
     Route::get('/closings', [AdminController::class, 'closingIndex'])->name('closings.index');
@@ -286,15 +298,22 @@ Route::middleware('permission:costing.view')->group(function () {
 // BOM
 Route::middleware('permission:bom.view')->group(function () {
     Route::get('/boms', [BomController::class, 'index'])->name('boms.index');
+    Route::get('/boms/compare', [BomController::class, 'compare'])->name('boms.compare');
+    Route::get('/boms/used-in/{ingredient}', [BomController::class, 'usedIn'])->name('boms.used-in');
     Route::get('/boms/create', [BomController::class, 'create'])->name('boms.create')->middleware('permission:bom.create');
     Route::post('/boms', [BomController::class, 'store'])->name('boms.store')->middleware('permission:bom.create');
     Route::get('/boms/{bom}', [BomController::class, 'show'])->name('boms.show');
     Route::post('/boms/{bom}/approve', [BomController::class, 'approve'])->name('boms.approve')->middleware('permission:bom.approve');
+    Route::post('/boms/{bom}/clone', [BomController::class, 'clone'])->name('boms.clone')->middleware('permission:bom.create');
     Route::delete('/boms/{bom}', [BomController::class, 'destroy'])->name('boms.destroy')->middleware('permission:bom.create');
 });
 
 // Demand plans & MRP
 Route::middleware('permission:demand.view')->group(function () {
+    Route::get('/forecasts', [ForecastController::class, 'index'])->name('forecasts.index');
+    Route::post('/forecasts', [ForecastController::class, 'generate'])->name('forecasts.generate');
+    Route::post('/forecasts/{forecast}/actual', [ForecastController::class, 'recordActual'])->name('forecasts.actual');
+    Route::post('/forecasts/{forecast}/scenario', [ForecastController::class, 'scenario'])->name('forecasts.scenario');
     Route::get('/demand-plans', [DemandPlanController::class, 'index'])->name('demand-plans.index');
     Route::get('/demand-plans/create', [DemandPlanController::class, 'create'])->name('demand-plans.create');
     Route::post('/demand-plans', [DemandPlanController::class, 'store'])->name('demand-plans.store');
@@ -414,6 +433,51 @@ Route::middleware('permission:webhook.view')->group(function () {
 });
 Route::middleware('permission:approval.view')->group(function () {
     Route::get('/approvals', [ApprovalController::class, 'inbox'])->name('approvals.inbox');
+    Route::get('/approvals/matrix', [ApprovalController::class, 'matrix'])->name('approvals.matrix');
+    Route::post('/approvals/matrix', [ApprovalController::class, 'storeMatrix'])->name('approvals.matrix.store');
+    Route::delete('/approvals/matrix/{matrix}', [ApprovalController::class, 'destroyMatrix'])->name('approvals.matrix.destroy');
+    Route::get('/approvals/delegations', [ApprovalController::class, 'delegations'])->name('approvals.delegations');
+    Route::post('/approvals/delegations', [ApprovalController::class, 'storeDelegation'])->name('approvals.delegations.store');
+    Route::post('/approvals/delegations/{delegation}/toggle', [ApprovalController::class, 'toggleDelegation'])->name('approvals.delegations.toggle');
+});
+
+// Global search (izin per modul dicek di dalam service)
+Route::get('/search', [SearchController::class, 'index'])->name('search.index');
+
+// Automation engine
+Route::middleware('permission:automation.view')->group(function () {
+    Route::get('/automation', [AutomationController::class, 'index'])->name('automation.index');
+    Route::post('/automation', [AutomationController::class, 'store'])->name('automation.store');
+    Route::post('/automation/{rule}/toggle', [AutomationController::class, 'toggle'])->name('automation.toggle');
+    Route::delete('/automation/{rule}', [AutomationController::class, 'destroy'])->name('automation.destroy');
+});
+
+// Notification center
+Route::get('/notifications/preferences', [NotificationCenterController::class, 'preferences'])->name('notifications.preferences');
+Route::post('/notifications/preferences', [NotificationCenterController::class, 'savePreferences'])->name('notifications.preferences.save');
+Route::middleware('permission:setting.view')->group(function () {
+    Route::get('/notifications/templates', [NotificationCenterController::class, 'templates'])->name('notifications.templates');
+    Route::post('/notifications/templates', [NotificationCenterController::class, 'storeTemplate'])->name('notifications.templates.store');
+});
+
+// Documents / SOP
+Route::middleware('permission:document.view')->group(function () {
+    Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/documents/create', [DocumentController::class, 'create'])->name('documents.create')->middleware('permission:document.manage');
+    Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store')->middleware('permission:document.manage');
+    Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::post('/documents/{document}/submit', [DocumentController::class, 'submitReview'])->name('documents.submit')->middleware('permission:document.manage');
+    Route::post('/documents/{document}/approve', [DocumentController::class, 'approve'])->name('documents.approve')->middleware('permission:document.manage');
+    Route::post('/documents/{document}/publish', [DocumentController::class, 'publish'])->name('documents.publish')->middleware('permission:document.manage');
+    Route::post('/documents/{document}/archive', [DocumentController::class, 'archive'])->name('documents.archive')->middleware('permission:document.manage');
+    Route::post('/documents/{document}/ack', [DocumentController::class, 'acknowledge'])->name('documents.ack');
+});
+
+// Import engine
+Route::middleware('permission:import.view')->group(function () {
+    Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
+    Route::post('/imports/{entity}/preview', [ImportController::class, 'preview'])->name('imports.preview');
+    Route::post('/imports/{entity}/commit', [ImportController::class, 'commit'])->name('imports.commit');
 });
 
 // Master catalog

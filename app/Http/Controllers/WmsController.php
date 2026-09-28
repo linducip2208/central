@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesOrgAccess;
 use App\Http\Controllers\Concerns\FiltersRequests;
 use App\Models\Batch;
+use App\Models\Ingredient;
+use App\Models\InventoryStock;
+use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\WarehouseBin;
 use App\Models\WarehouseRack;
 use App\Models\WarehouseZone;
+use App\Services\WebhookService;
 use Illuminate\Http\Request;
 
 class WmsController extends Controller
@@ -69,6 +73,7 @@ class WmsController extends Controller
         $request->validate(['hold_reason' => 'required|string|max:100']);
         abort_unless($batch->status === 'AVAILABLE', 422);
         $batch->update(['status' => 'BLOCKED', 'hold_reason' => $request->hold_reason]);
+        app(WebhookService::class)->dispatch('batch.quarantined', ['batch_no' => $batch->batch_no, 'reason' => $request->hold_reason], $batch->organization_id);
 
         return back()->with('success', 'Batch dikarantina: '.$request->hold_reason);
     }
@@ -78,11 +83,12 @@ class WmsController extends Controller
         $this->ensureOrgAccess($batch);
         abort_unless($batch->status === 'BLOCKED', 422);
         $batch->update(['status' => 'AVAILABLE', 'hold_reason' => null]);
+        app(WebhookService::class)->dispatch('batch.released', ['batch_no' => $batch->batch_no], $batch->organization_id);
 
         return back()->with('success', 'Batch dirilis dari karantina.');
     }
 
-    /** Barcode/QR scan: lookup bin atau batch. Ramah untuk pemindai (autofocus + enter). */
+    /** Barcode/QR scan: lookup bin, batch, atau barcode item. Ramah pemindai (autofocus + enter). */
     public function scan(Request $request)
     {
         $result = null;
@@ -93,7 +99,20 @@ class WmsController extends Controller
                 $result = ['type' => 'bin', 'bin' => $bin];
             } else {
                 $batch = Batch::with(['warehouse', 'bin'])->where('batch_no', $code)->first();
-                $result = $batch ? ['type' => 'batch', 'batch' => $batch] : ['type' => 'none'];
+                if ($batch) {
+                    $result = ['type' => 'batch', 'batch' => $batch];
+                } else {
+                    $ing = Ingredient::where('barcode', $code)->first();
+                    $prd = ! $ing ? Product::where('barcode', $code)->first() : null;
+                    if ($ing || $prd) {
+                        $type = $ing ? 'ingredient' : 'product';
+                        $item = $ing ?? $prd;
+                        $stocks = InventoryStock::with(['warehouse', 'batch'])->where('item_type', $type)->where('item_id', $item->id)->where('qty', '>', 0)->get();
+                        $result = ['type' => 'item', 'item_type' => $type, 'item' => $item, 'stocks' => $stocks];
+                    } else {
+                        $result = ['type' => 'none'];
+                    }
+                }
             }
         }
 

@@ -9,18 +9,22 @@ use App\Models\Ingredient;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Menu;
+use App\Models\NonConformance;
 use App\Models\Product;
 use App\Models\ProductionOrder;
 use App\Models\PurchaseOrder;
 use App\Models\QualityInspection;
 use App\Models\Recall;
 use App\Models\ScheduledReport;
+use App\Models\SchoolConfirmation;
 use App\Models\Supplier;
 use App\Models\SupplierInvoice;
 use App\Models\Warehouse;
 use App\Models\Waste;
 use App\Services\ForecastService;
+use App\Services\KpiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ReportController extends Controller
 {
@@ -179,6 +183,39 @@ class ReportController extends Controller
             ->sortByDesc('cost')->values();
 
         return view('reports.school-cost', compact('rows', 'from', 'to', 'avgCost'));
+    }
+
+    public function daily(Request $request, KpiService $kpi)
+    {
+        $orgId = $request->user()->organization_id;
+        $kitchenId = $request->user()->central_kitchen_id;
+        $date = $request->get('date', today()->toDateString());
+        $summary = $kpi->summary($orgId, $kitchenId, $date, $date);
+        $productions = ProductionOrder::with(['product'])->where('organization_id', $orgId)
+            ->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
+            ->whereDate('production_date', $date)->get();
+        $deliveries = Delivery::with(['school'])->where('organization_id', $orgId)
+            ->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId))
+            ->whereDate('delivery_date', $date)->get();
+        $movements = InventoryMovement::where('organization_id', $orgId)->whereDate('movement_date', $date)->count();
+
+        return view('reports.daily', compact('summary', 'productions', 'deliveries', 'movements', 'date'));
+    }
+
+    public function exceptions(Request $request)
+    {
+        $orgId = $request->user()->organization_id;
+        $kitchenId = $request->user()->central_kitchen_id;
+        $scoped = fn (string $model) => $model::where('organization_id', $orgId)->when($kitchenId, fn ($q) => $q->where('central_kitchen_id', $kitchenId));
+        $items = [
+            'Variansi invoice' => SupplierInvoice::where('organization_id', $orgId)->where('match_status', 'VARIANCE')->latest()->take(10)->get()->map(fn ($i) => ['label' => $i->number.' ('.mbg_currency($i->price_variance).')', 'url' => route('invoices.show', $i)]),
+            'QC gagal' => $scoped(QualityInspection::class)->where('result', 'FAILED')->latest()->take(10)->get()->map(fn ($i) => ['label' => $i->number, 'url' => route('inspections.show', $i)]),
+            'NCR terbuka' => $scoped(NonConformance::class)->where('status', 'OPEN')->latest()->take(10)->get()->map(fn ($i) => ['label' => $i->number.' · '.$i->severity, 'url' => route('ncrs.show', $i)]),
+            'Delivery gagal' => $scoped(Delivery::class)->where('status', 'FAILED')->latest()->take(10)->get()->map(fn ($i) => ['label' => $i->number, 'url' => route('deliveries.show', $i)]),
+            'Keluhan' => SchoolConfirmation::whereNotNull('complaint')->where('complaint', '!=', '')->whereHas('school', fn ($q) => $q->where('organization_id', $orgId))->latest()->take(10)->get()->map(fn ($i) => ['label' => ($i->school->name ?? '').': '.Str::limit($i->complaint, 50), 'url' => route('portal.complaints')]),
+        ];
+
+        return view('reports.exceptions', compact('items'));
     }
 
     public function nutrition(Request $request)

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Batch;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Warehouse;
 use App\Services\Exceptions\InsufficientStockException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -46,20 +47,26 @@ class InventoryService
     }
 
     /**
-     * Kandidat batch FEFO: AVAILABLE, qty > 0, belum kedaluwarsa,
-     * diurutkan expiry tercepat dulu (NULL terakhir).
+     * Kandidat batch alokasi: AVAILABLE, qty > 0, belum kedaluwarsa.
+     * Urutan mengikuti metode gudang: FEFO (expiry tercepat, NULL terakhir)
+     * atau FIFO (batch dibuat lebih dulu).
      */
     public function fefoBatches(int $warehouseId, string $itemType, int $itemId, ?int $excludeBatchId = null)
     {
+        $method = Warehouse::whereKey($warehouseId)->value('fifo_method') ?? 'FEFO';
         $q = Batch::available()
             ->where('warehouse_id', $warehouseId)
             ->where('item_type', $itemType)
             ->where('item_id', $itemId)
             ->where(function ($w) {
                 $w->whereNull('expiry_date')->orWhereDate('expiry_date', '>=', now()->toDateString());
-            })
-            ->fefo()
-            ->lockForUpdate();
+            });
+        if ($method === 'FIFO') {
+            $q->orderBy('created_at')->orderBy('id');
+        } else {
+            $q->fefo();
+        }
+        $q->lockForUpdate();
 
         if ($excludeBatchId) {
             $q->where('id', '!=', $excludeBatchId);

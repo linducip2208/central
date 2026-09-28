@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Core\Services\SettingService;
 use App\Models\Allergen;
+use App\Models\ApprovalMatrix;
+use App\Models\AutomationRule;
 use App\Models\CentralKitchen;
 use App\Models\DeliveryRoute;
 use App\Models\FeatureFlag;
@@ -12,8 +14,10 @@ use App\Models\InspectionTemplate;
 use App\Models\MealGroup;
 use App\Models\Menu;
 use App\Models\MenuCycle;
+use App\Models\NotificationTemplate;
 use App\Models\Organization;
 use App\Models\School;
+use App\Models\SubscriptionPlan;
 use App\Models\Supplier;
 use App\Models\SupplierPriceList;
 use App\Models\Unit;
@@ -157,6 +161,53 @@ class ExpansionSeeder extends Seeder
         foreach (['portal.enabled' => 'Portal sekolah aktif', 'api.v2' => 'API v2 (roadmap, nonaktif)', 'ai.advisor' => 'Advisor deterministik aktif'] as $k => $desc) {
             FeatureFlag::firstOrCreate(['key' => $k], ['is_enabled' => $k !== 'api.v2', 'description' => $desc]);
         }
+
+        // Matriks persetujuan default (nominal besar → peran lebih tinggi).
+        foreach ([
+            ['PurchaseRequest', 10000000, 2, 'admin'],
+            ['PurchaseOrder', 50000000, 2, 'admin'],
+            ['SupplierInvoice', 25000000, 1, 'finance'],
+        ] as [$type, $min, $level, $role]) {
+            ApprovalMatrix::firstOrCreate(
+                ['organization_id' => $org->id, 'approvable_type' => $type, 'level' => $level],
+                ['min_amount' => $min, 'role' => $role]
+            );
+        }
+
+        // Template notifikasi default.
+        $templates = [
+            ['pr_approved', 'PR disetujui: {{number}}', 'PR {{number}} disetujui oleh {{by}}.'],
+            ['pr_rejected', 'PR ditolak: {{number}}', 'PR {{number}} ditolak. Alasan: {{reason}}.'],
+            ['po_approved', 'PO disetujui: {{number}}', 'PO {{number}} siap diterima di gudang.'],
+            ['low_stock', 'Stok menipis', '{{items}} bahan di bawah minimum.'],
+            ['expiry_alert', 'Mendekati expired', '{{items}} batch mendekati kedaluwarsa.'],
+            ['qc_alert', 'QC {{result}}: {{number}}', 'Hasil {{result}} pada {{reference}}.'],
+            ['delivery_done', 'Delivery {{status}}: {{number}}', '{{number}} ke {{school}}: {{delivered}} porsi ({{status}}).'],
+            ['recall_created', 'RECALL {{number}}', 'Recall {{reason}} diaktifkan. Segera karantina.'],
+            ['scheduled_report', 'Laporan {{dataset}} siap', 'File: {{file}}.'],
+            ['production_ready', 'WO siap diproduksi', 'Production order #{{production_order_id}} dirilis.'],
+        ];
+        foreach ($templates as [$type, $subject, $body]) {
+            NotificationTemplate::firstOrCreate(['type' => $type], ['subject' => $subject, 'body' => $body, 'mail_enabled' => false]);
+        }
+
+        // Subscription plans.
+        foreach ([
+            ['COMMUNITY', 'Community', 5, 2, false],
+            ['PRO', 'Professional', 50, 10, true],
+            ['ENTERPRISE', 'Enterprise', 0, 0, true],
+        ] as [$code, $name, $users, $wh, $api]) {
+            SubscriptionPlan::firstOrCreate(['code' => $code], ['name' => $name, 'max_users' => $users, 'max_warehouses' => $wh, 'api_access' => $api, 'is_active' => true]);
+        }
+        if (! $org->subscription_plan_id) {
+            $org->update(['subscription_plan_id' => SubscriptionPlan::where('code', 'ENTERPRISE')->first()?->id]);
+        }
+
+        // Contoh automation rule.
+        AutomationRule::firstOrCreate(
+            ['organization_id' => $org->id, 'name' => 'QC gagal → tim dapur', 'event' => 'qc.failed'],
+            ['action' => 'notify_role', 'target_role' => 'kitchen', 'message' => 'QC gagal {{number}} ({{result}}). Segera tahan batch terkait.', 'is_active' => true]
+        );
 
         // User portal sekolah.
         $schoolUser = User::firstOrCreate(['email' => 'sekolah@mbg.id'], [

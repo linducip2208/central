@@ -18,6 +18,8 @@
 <div class="col-md-3"><label class="form-label">Safety stock</label><input name="safety_stock" type="number" min="0" step="0.001" class="form-control" value="{{ old('safety_stock', $ingredient->safety_stock ?? 0) }}"/></div>
 <div class="col-md-3"><label class="form-label">Lead time (hari)</label><input name="lead_time_days" type="number" min="0" class="form-control" value="{{ old('lead_time_days', $ingredient->lead_time_days ?? 1) }}"/></div>
 <div class="col-md-3"><label class="form-label">MOQ</label><input name="moq" type="number" min="0" step="0.001" class="form-control" value="{{ old('moq', $ingredient->moq ?? 0) }}"/></div>
+<div class="col-md-3"><label class="form-label">Kelipatan order</label><input name="order_multiple" type="number" min="0" step="0.001" class="form-control" value="{{ old('order_multiple', $ingredient->order_multiple ?? 0) }}"/></div>
+<div class="col-md-3"><label class="form-label">Barcode</label><input name="barcode" class="form-control" value="{{ old('barcode', $ingredient->barcode) }}" placeholder="scan/generate"/></div>
 <div class="col-md-5"><label class="form-label">Supplier preferensi</label>
 <select name="preferred_supplier_id" class="form-select"><option value="">— otomatis termurah —</option>@foreach(\App\Models\Supplier::active()->get() as $s)<option value="{{ $s->id }}" @selected(old('preferred_supplier_id', $ingredient->preferred_supplier_id) == $s->id)>{{ $s->name }}</option>@endforeach</select></div>
 <div class="col-md-4"><label class="form-label">Alergen</label>

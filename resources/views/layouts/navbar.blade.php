@@ -28,10 +28,10 @@
 </div>
 </div>
 <div class="collapse navbar-collapse" id="navbar-menu">
-<form class="d-none d-md-flex" method="GET" action="{{ route('reports.index') }}">
+<form class="d-none d-md-flex" method="GET" action="{{ route('search.index') }}">
 <div class="input-icon">
 <span class="input-icon-addon"><i class="ti ti-search"></i></span>
-<input type="text" class="form-control" placeholder="Cari…" name="q" value="{{ request('q') }}"/>
+<input type="text" class="form-control" placeholder="Cari global…" name="q" value="{{ request('q') }}"/>
 </div>
 </form>
 </div>

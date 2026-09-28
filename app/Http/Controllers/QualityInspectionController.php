@@ -17,6 +17,7 @@ use App\Models\ProductionOrder;
 use App\Models\QualityInspection;
 use App\Models\TemperatureLog;
 use App\Models\User;
+use App\Services\AutomationService;
 use App\Services\NumberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,6 +132,7 @@ class QualityInspectionController extends Controller
         });
 
         if ($result === 'FAILED') {
+            app(AutomationService::class)->fire('qc.failed', ['organization_id' => $inspection->organization_id, 'number' => $inspection->number, 'result' => 'FAILED']);
             event(new InspectionFailed($inspection));
             $admins = User::where('organization_id', $inspection->organization_id)
                 ->whereHas('roles', fn ($q) => $q->whereIn('name', ['super-admin', 'admin']))

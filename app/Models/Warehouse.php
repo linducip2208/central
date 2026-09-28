@@ -10,7 +10,7 @@ class Warehouse extends Model
 {
     use Auditable, SoftDeletes;
 
-    protected $fillable = ['central_kitchen_id', 'code', 'name', 'warehouse_type', 'location', 'pic_name', 'is_default', 'status'];
+    protected $fillable = ['central_kitchen_id', 'code', 'name', 'warehouse_type', 'fifo_method', 'location', 'pic_name', 'is_default', 'status'];
 
     protected function casts(): array
     {

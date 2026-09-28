@@ -23,17 +23,22 @@ class RolesPermissionsSeeder extends Seeder
         'invoice.view', 'invoice.verify', 'wms.view', 'qms.view',
         'recall.view', 'recall.create', 'recall.approve',
         'tms.view', 'portal.view', 'webhook.view', 'approval.view', 'catalog.view',
+        'document.view', 'document.manage', 'automation.view', 'automation.manage', 'import.view',
     ];
 
     public const ROLE_PERMS = [
         'super-admin' => '*',
         'admin' => '*',
-        'procurement' => ['demand.view', 'pr.view', 'pr.create', 'supplier.view', 'po.view', 'po.create', 'gr.view', 'product.view', 'report.view', 'rfq.view', 'rfq.create', 'invoice.view', 'mrp.view', 'approval.view'],
-        'warehouse' => ['gr.view', 'gr.create', 'inventory.view', 'inventory.adjust', 'opname.view', 'opname.create', 'product.view', 'report.view', 'wms.view', 'bom.view'],
-        'kitchen' => ['production.view', 'production.create', 'qc.view', 'qc.create', 'qms.view', 'demand.view', 'menu.view', 'product.view', 'inventory.view', 'bom.view'],
+        'procurement' => ['demand.view', 'pr.view', 'pr.create', 'supplier.view', 'po.view', 'po.create', 'gr.view', 'product.view', 'report.view', 'rfq.view', 'rfq.create', 'invoice.view', 'mrp.view', 'approval.view', 'document.view', 'import.view'],
+        'warehouse' => ['gr.view', 'gr.create', 'inventory.view', 'inventory.adjust', 'opname.view', 'opname.create', 'product.view', 'report.view', 'wms.view', 'bom.view', 'document.view', 'import.view'],
+        'kitchen' => ['production.view', 'production.create', 'qc.view', 'qc.create', 'qms.view', 'demand.view', 'menu.view', 'product.view', 'inventory.view', 'bom.view', 'document.view'],
         'driver' => ['delivery.view', 'delivery.update', 'distribution.view', 'tms.view'],
-        'school' => ['portal.view', 'delivery.view'],
-        'viewer' => ['demand.view', 'pr.view', 'po.view', 'gr.view', 'inventory.view', 'production.view', 'distribution.view', 'delivery.view', 'report.view', 'costing.view', 'bom.view', 'mrp.view', 'rfq.view', 'invoice.view', 'wms.view', 'qms.view', 'recall.view', 'tms.view'],
+        'school' => ['portal.view', 'delivery.view', 'document.view'],
+        'finance' => ['invoice.view', 'invoice.verify', 'costing.view', 'report.view', 'approval.view', 'document.view'],
+        'qc_manager' => ['qc.view', 'qc.create', 'qms.view', 'production.view', 'inventory.view', 'approval.view', 'document.view', 'report.view'],
+        'planning' => ['demand.view', 'mrp.view', 'mrp.run', 'bom.view', 'bom.create', 'menu.view', 'product.view', 'report.view', 'document.view'],
+        'auditor' => ['audit.view', 'approval.view', 'report.view', 'document.view', 'inventory.view', 'production.view', 'delivery.view'],
+        'viewer' => ['demand.view', 'pr.view', 'po.view', 'gr.view', 'inventory.view', 'production.view', 'distribution.view', 'delivery.view', 'report.view', 'costing.view', 'bom.view', 'mrp.view', 'rfq.view', 'invoice.view', 'wms.view', 'qms.view', 'recall.view', 'tms.view', 'document.view'],
     ];
 
     public function run(): void

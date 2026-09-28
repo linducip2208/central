@@ -9,6 +9,8 @@ use App\Core\Services\SettingService;
 use App\Services\CostingService;
 use App\Services\InventoryService;
 use App\Services\NumberService;
+use App\Services\WhatsApp\LogWhatsAppProvider;
+use App\Services\WhatsApp\WhatsAppProvider;
 use Illuminate\Support\ServiceProvider;
 
 class MbgCoreProvider extends ServiceProvider
@@ -23,6 +25,13 @@ class MbgCoreProvider extends ServiceProvider
         $this->app->singleton(InventoryService::class);
         $this->app->singleton(CostingService::class);
         $this->app->singleton(NumberService::class);
+        $this->app->singleton(WhatsAppProvider::class, function () {
+            return match (config('services.whatsapp.provider', 'log')) {
+                // Provider API agregator dipasang di sini bila dikonfigurasi;
+                // default aman: adapter log (tanpa kredensial).
+                default => new LogWhatsAppProvider,
+            };
+        });
     }
 
     public function boot(): void

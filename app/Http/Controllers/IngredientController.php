@@ -36,7 +36,7 @@ class IngredientController extends Controller
         return view('ingredients.form', ['ingredient' => new Ingredient, 'units' => $units]);
     }
 
-    protected function rules(): array
+    protected function rules(?int $ignoreId = null): array
     {
         return [
             'name' => 'required|string|max:255',
@@ -47,6 +47,7 @@ class IngredientController extends Controller
             'shelf_life_days' => 'nullable|integer|min:0',
             'reorder_point' => 'nullable|numeric|min:0', 'safety_stock' => 'nullable|numeric|min:0',
             'lead_time_days' => 'nullable|integer|min:0', 'moq' => 'nullable|numeric|min:0',
+            'order_multiple' => 'nullable|numeric|min:0', 'barcode' => 'nullable|string|max:60|unique:ingredients,barcode'.($ignoreId ? ','.$ignoreId : ''),
             'preferred_supplier_id' => 'nullable|exists:suppliers,id',
             'allergens' => 'nullable|array', 'allergens.*' => 'exists:allergens,id',
             'is_active' => 'boolean',
@@ -91,7 +92,7 @@ class IngredientController extends Controller
     public function update(Request $request, Ingredient $ingredient)
     {
         $this->ensureOrgAccess($ingredient);
-        $data = $request->validate($this->rules());
+        $data = $request->validate($this->rules($ingredient->id));
         $allergens = $data['allergens'] ?? [];
         unset($data['allergens']);
         $data['is_active'] = $request->boolean('is_active', true);
