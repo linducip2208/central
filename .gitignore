@@ -7,6 +7,9 @@
 /storage/framework/views/*.php
 /storage/logs/*.log
 /public/storage
+/storage/app/public/delivery-proofs/*
+/storage/app/public/qc-photos/*
+!/storage/app/public/.gitignore
 .env
 .env.backup
 .env.production
